@@ -1,13 +1,13 @@
-// Servidor do Z-Brasil v2 — sem dependências (só precisa do Node.js)
+// Servidor do Z-Brasil v4 — sem dependências (só precisa do Node.js)
 // Uso:  node server.js    (deixe na mesma pasta do z-brasil-base.html)
 //
 // O que ele faz:
-//  - cada estado do Brasil é uma "base" (sala); jogadores do mesmo estado aparecem juntos
-//  - notícias (logs) online da base
-//  - chat da base e chat do Brasil
-//  - efeitos em grupo (médico cura todos, barricadeiro reforça, coletor traz suprimentos)
-//
-// Comunicação: SSE (servidor -> jogo) + POST (jogo -> servidor). Funciona em hospedagens comuns.
+//  - cada estado do Brasil é uma BASE: jogadores do mesmo estado aparecem juntos
+//  - cada jogador tem os SEUS recursos (comida, água, sucata, defesa, prata)
+//  - cada base tem um TOTAL (a soma dos jogadores daquela base) que só os jogadores
+//    daquela base recebem (o total do RJ só aparece para quem está na base do RJ)
+//  - notícias (logs) online da base, chat da base e chat do Brasil
+//  - o médico cura todos da base
 
 const http = require('http');
 const fs = require('fs');
@@ -19,13 +19,14 @@ const GAME_FILE = path.join(__dirname, 'z-brasil-base.html');
 
 const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
 const JOBS = ['coletador', 'barricada', 'guarda', 'medico'];
+const ITEM_NAMES = { racao: 'Ração', kit: 'Kit médico', reforco: 'Reforço', bastao: 'Bastão dourado' };
 const BAD = [
     'pau','pinto','bunda','vagina','penis','buceta','caralho',
     'droga','maconha','cocaina','crack','lança','arma','fuzil',
     'pistola','oitão','assassinar','matar','biqueira','trafico'
 ];
 
-const clients = new Map();   // id -> { id, name, uf, shirt, job, res, lastChat, lastAct }
+const clients = new Map();   // id -> { id, name, uf, shirt, job, stats, res, lastChat, lastAct }
 const rooms = {};            // uf -> { log: [] }
 const baseChat = {};         // uf -> []
 const globalChat = [];
@@ -58,7 +59,9 @@ function send(res, event, data) {
 }
 function playersOf(uf) {
     const a = [];
-    clients.forEach((c) => { if (c.uf === uf) a.push({ id: c.id, name: c.name, shirt: c.shirt, job: c.job }); });
+    clients.forEach((c) => {
+        if (c.uf === uf) a.push({ id: c.id, name: c.name, shirt: c.shirt, job: c.job, gb: c.stats ? c.stats.gb : 0 });
+    });
     return a;
 }
 function counts() {
@@ -71,6 +74,25 @@ function toRoom(uf, event, data) {
 }
 function toAll(event, data) {
     clients.forEach((c) => send(c.res, event, data));
+}
+
+// total da base = soma dos recursos dos jogadores daquela base (só quem é da base recebe)
+function totalsOf(uf) {
+    const t = { food: 0, water: 0, scrap: 0, defense: 0, silver: 0, players: 0 };
+    clients.forEach((c) => {
+        if (c.uf !== uf) return;
+        t.players++;
+        if (c.stats) {
+            t.food += c.stats.food; t.water += c.stats.water; t.scrap += c.stats.scrap;
+            t.defense += c.stats.defense; t.silver += c.stats.silver;
+        }
+    });
+    return t;
+}
+const totalsTimers = {};
+function scheduleTotals(uf) {
+    if (totalsTimers[uf]) return;
+    totalsTimers[uf] = setTimeout(() => { delete totalsTimers[uf]; toRoom(uf, 'totals', totalsOf(uf)); }, 700);
 }
 let countsTimer = null;
 function scheduleCounts() {
@@ -104,13 +126,17 @@ function jobText(job, name) {
     }
     return null;
 }
+function num(v, max) {
+    v = Math.floor(Number(v));
+    if (!isFinite(v) || v < 0) return 0;
+    return Math.min(v, max);
+}
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type'
 };
-
 function readBody(req, cb) {
     let b = '';
     req.on('data', (d) => { b += d; if (b.length > 4096) req.destroy(); });
@@ -137,7 +163,7 @@ const server = http.createServer((req, res) => {
         if (name.length < 2 || nameHasBad(name)) name = 'Sobrevivente';
 
         const prev = clients.get(id);
-        if (prev) { try { prev.res.end(); } catch (e) { /* ignora */ } clients.delete(id); }
+        if (prev) { try { prev.res.end(); } catch (e) { /* ignora */ } clients.delete(id); scheduleTotals(prev.uf); }
 
         req.socket.setTimeout(0);
         res.writeHead(200, Object.assign({
@@ -149,7 +175,7 @@ const server = http.createServer((req, res) => {
         res.write('retry: 3000\n\n');
 
         const shirt = pickShirt(uf, id, u.searchParams.get('shirt'));
-        const c = { id: id, name: name, uf: uf, shirt: shirt, job: '', res: res, lastChat: 0, lastAct: 0 };
+        const c = { id: id, name: name, uf: uf, shirt: shirt, job: '', stats: null, res: res, lastChat: 0, lastAct: 0, lastJobLog: 0 };
         clients.set(id, c);
         const r = room(uf);
 
@@ -159,13 +185,15 @@ const server = http.createServer((req, res) => {
             log: r.log,
             chat: baseChat[uf],
             gchat: globalChat,
-            counts: counts()
+            counts: counts(),
+            totals: totalsOf(uf)
         });
 
         const fresh = !lastLeft[id] || Date.now() - lastLeft[id] > 60000;
         if (fresh) addLog(uf, '👋 Seja bem-vindo à base, ' + name + '!');
         toRoom(uf, 'players', playersOf(uf));
         scheduleCounts();
+        scheduleTotals(uf);
 
         req.on('close', () => {
             if (clients.get(id) === c) {
@@ -173,12 +201,30 @@ const server = http.createServer((req, res) => {
                 lastLeft[id] = Date.now();
                 toRoom(uf, 'players', playersOf(uf));
                 scheduleCounts();
+                scheduleTotals(uf);
             }
         });
         return;
     }
 
-    // Ações do jogador
+    // Recursos do jogador (o servidor soma e manda o total só para a base dele)
+    if (url === '/stats' && req.method === 'POST') {
+        readBody(req, (b) => {
+            const c = b && clients.get(String(b.id));
+            if (!c) { reply(res, 400, 'sem conexao'); return; }
+            const old = c.stats ? c.stats.gb : 0;
+            c.stats = {
+                food: num(b.food, 99999), water: num(b.water, 99999), scrap: num(b.scrap, 99999),
+                defense: num(b.defense, 99999), silver: num(b.silver, 99999), gb: b.gb ? 1 : 0
+            };
+            if (c.stats.gb !== old) toRoom(c.uf, 'players', playersOf(c.uf));
+            scheduleTotals(c.uf);
+            reply(res, 200, 'ok');
+        });
+        return;
+    }
+
+    // Ações do jogador (viram notícias na base)
     if (url === '/act' && req.method === 'POST') {
         readBody(req, (b) => {
             const c = b && clients.get(String(b.id));
@@ -188,21 +234,22 @@ const server = http.createServer((req, res) => {
                 const job = JOBS.indexOf(b.job) >= 0 ? b.job : '';
                 const changed = job !== c.job;
                 c.job = job;
-                if (b.type === 'job' && changed && job) {
-                    if (now - c.lastAct > 3000) { addLog(c.uf, jobText(job, c.name)); c.lastAct = now; }
-                }
+                if (b.type === 'job' && changed && job && now - c.lastJobLog > 3000) { addLog(c.uf, jobText(job, c.name)); c.lastJobLog = now; }
                 toRoom(c.uf, 'players', playersOf(c.uf));
             } else if (b.type === 'action') {
                 if (now - c.lastAct < 20000) { reply(res, 429, 'calma'); return; }
                 c.lastAct = now;
                 const t = jobText(c.job, c.name);
                 if (t) addLog(c.uf, t);
-                const fx = { coletador: 'supply', barricada: 'barricade', medico: 'heal' }[c.job];
-                if (fx) toRoom(c.uf, 'fx', { type: fx, by: c.id });
+                if (c.job === 'medico') toRoom(c.uf, 'fx', { type: 'heal', by: c.id }); // cura todos da base
             } else if (b.type === 'raid_ok') {
                 addLog(c.uf, '🛡️ As barricadas de ' + c.name + ' seguraram a horda!');
             } else if (b.type === 'raid_fail') {
                 addLog(c.uf, '🚨 A horda invadiu a base de ' + c.name + '!');
+            } else if (b.type === 'trade_log') {
+                addLog(c.uf, '🥈 ' + c.name + ' trocou 10 sucatas por 5 moedas de prata com o trocador!');
+            } else if (b.type === 'buy_log' && ITEM_NAMES[b.item]) {
+                addLog(c.uf, '🛒 ' + c.name + ' comprou ' + ITEM_NAMES[b.item] + '!');
             }
             reply(res, 200, 'ok');
         });

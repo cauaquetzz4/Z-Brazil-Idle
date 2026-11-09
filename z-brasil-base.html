@@ -11,7 +11,7 @@
 
     /* ---------- BASE 2D ---------- */
     #base-view { position:absolute; top:0; left:0; right:0; background:#000; overflow:hidden; }
-    #base-canvas { width:100%; height:100%; display:block; image-rendering:pixelated; image-rendering:-moz-crisp-edges; }
+    #base-canvas { width:100%; height:100%; display:block; }
     #hud { position:absolute; top:6px; left:8px; right:8px; pointer-events:none; font-size:12px; text-shadow:1px 1px 2px #000; }
     #hud .row { display:flex; justify-content:space-between; align-items:flex-start; }
     #hud-res { margin-top:3px; color:#ffe082; }
@@ -33,6 +33,8 @@
     .track { flex:1; height:9px; background:#111; border-radius:5px; overflow:hidden; }
     .fill { height:100%; width:0; border-radius:5px; }
     .fill.hp { background:#e53935; } .fill.def { background:#42a5f5; } .fill.food { background:#ffa726; } .fill.water { background:#26c6da; }
+    .tot-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
+    .tot-grid span { background:#1d1d1d; padding:7px 4px; border-radius:4px; text-align:center; font-size:12px; }
     .chips { display:flex; gap:8px; margin:8px 0; }
     .chips span { flex:1; background:#222; padding:8px; border-radius:4px; text-align:center; font-size:13px; }
 
@@ -154,8 +156,9 @@
             <span id="handle-text">Arraste para cima/baixo</span>
         </div>
         <div id="sheet-body">
+            <div style="font-size:12px; color:#ffcc80; margin-bottom:5px;">🎒 Seus recursos (só seus)</div>
             <div class="bars">
-                <div class="bar"><span>❤️ Vida</span><div class="track"><div id="b-hp" class="fill hp"></div></div><b id="hp">100</b></div>
+                <div class="bar"><span>❤️ HP</span><div class="track"><div id="b-hp" class="fill hp"></div></div><b id="hp">100</b></div>
                 <div class="bar"><span>🛡️ Defesa</span><div class="track"><div id="b-def" class="fill def"></div></div><b id="defense">20</b></div>
                 <div class="bar"><span>🍖 Comida</span><div class="track"><div id="b-food" class="fill food"></div></div><b id="food">15</b></div>
                 <div class="bar"><span>🥤 Água</span><div class="track"><div id="b-water" class="fill water"></div></div><b id="water">15</b></div>
@@ -163,6 +166,18 @@
             <div class="chips">
                 <span>💰 Sucata <b id="scrap">10</b></span>
                 <span>🥈 Prata <b id="silver">0</b></span>
+            </div>
+
+            <div class="box" style="border-left-color:#ffb300;">
+                <strong>📦 Total da base de <span id="tot-name">-</span></strong>
+                <div style="font-size:11px; color:#999; margin:3px 0 7px;">Soma dos recursos dos <b id="tot-n">1</b> jogador(es) desta base. Só quem está nesta base vê este total.</div>
+                <div class="tot-grid">
+                    <span>🍖 Comida<br><b id="tot-food">0</b></span>
+                    <span>🥤 Água<br><b id="tot-water">0</b></span>
+                    <span>💰 Sucata<br><b id="tot-scrap">0</b></span>
+                    <span>🛡️ Defesa<br><b id="tot-def">0</b></span>
+                    <span>🥈 Prata<br><b id="tot-silver">0</b></span>
+                </div>
             </div>
 
             <div class="box base">
@@ -197,6 +212,7 @@
                     <button class="btn-sm" onclick="dbgWed()">Quarta: <span id="d-wed">auto</span></button>
                     <button class="btn-sm" onclick="dbgFake(1)">+ jogador falso</button>
                     <button class="btn-sm" onclick="dbgFake(-1)">− jogador falso</button>
+                    <button class="btn-sm" onclick="dbgRaid()">Forçar ataque</button>
                 </div>
                 <div style="margin-top:6px;">Hora:
                     <button class="btn-sm" onclick="dbgHour(null)">auto</button>
@@ -269,11 +285,13 @@ var BRAZIL = [
 //  ESTADO DO JOGADOR (salvo no aparelho)
 // =====================================================
 var me = { id: "", name: "", uf: "", lat: null, lon: null, shirt: 0 };
-var G = defaultG();
+var G = { job: "" };            // emprego
+var B = newBase();              // SEUS recursos (salvos no seu aparelho)
+var T = null;                   // TOTAL da sua base: soma dos jogadores dela (vem do servidor)
 var gameStarted = false;
 
-function defaultG() {
-    return { hp: 100, defense: 20, food: 15, water: 15, scrap: 10, silver: 0, job: "", goldBat: false, lastRaid: "" };
+function newBase() {
+    return { hp: 100, defense: 20, food: 15, water: 15, scrap: 10, silver: 0, goldBat: false, lastRaid: "" };
 }
 
 var DBG = { hour: null, rain: null, wed: null, fake: 0 };
@@ -295,15 +313,15 @@ function readLocal() {
         if (raw) return JSON.parse(raw);
         var old = localStorage.getItem(OLD_KEY); // migra save antigo
         if (old) {
-            var o = JSON.parse(old), g = o.gameState || {};
-            return { me: { name: o.name || "" }, G: { hp: g.hp, defense: g.defense, food: g.food, water: g.water, scrap: g.scrap } };
+            var o = JSON.parse(old);
+            return { me: { name: o.name || "" } };
         }
     } catch (e) { /* ignora */ }
     return null;
 }
 function saveLocal() {
     try {
-        var s = JSON.stringify({ me: me, G: G });
+        var s = JSON.stringify({ me: me, G: G, B: B });
         if (s === lastSaved) return;
         localStorage.setItem(SAVE_KEY, s);
         lastSaved = s;
@@ -414,7 +432,8 @@ window.onload = function () {
     var s = readLocal();
     if (s && s.me && s.me.name) {
         me = Object.assign(me, s.me);
-        G = Object.assign(defaultG(), s.G || {});
+        G = Object.assign({ job: "" }, s.G || {});
+        if (s.B) B = Object.assign(newBase(), s.B);
         if (!me.id) me.id = newId();
         if (!me.shirt && me.shirt !== 0) me.shirt = hueFromId(me.id);
     }
@@ -606,8 +625,11 @@ function wxIcon(c, x, y, r, kind, day) {
 function drawMap() {
     var cv = $('map-canvas');
     var size = Math.max(240, Math.min(window.innerWidth - 20, window.innerHeight - 190, 640));
-    cv.width = size; cv.height = size;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    cv.width = Math.round(size * dpr); cv.height = Math.round(size * dpr);
+    cv.style.width = size + "px"; cv.style.height = size + "px";
     var c = cv.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
     c.fillStyle = '#0d2233'; c.fillRect(0, 0, size, size);
 
     function path(ring) {
@@ -697,9 +719,9 @@ function openMap() {
 function closeMap() { $('map-overlay').classList.remove('show'); clearInterval(mapTimer); }
 
 $('map-canvas').addEventListener('click', function (e) {
-    var cv = $('map-canvas'), rc = cv.getBoundingClientRect(), sx = cv.width / rc.width;
+    var cv = $('map-canvas'), rc = cv.getBoundingClientRect(), size = parseFloat(cv.style.width) || cv.width, sx = size / rc.width;
     var x = (e.clientX - rc.left) * sx, y = (e.clientY - rc.top) * sx;
-    var ll = unproj(x, y, cv.width), uf = ufFromPoint(ll[0], ll[1]), st = uf ? stByUf[uf] : null;
+    var ll = unproj(x, y, size), uf = ufFromPoint(ll[0], ll[1]), st = uf ? stByUf[uf] : null;
     if (!st) { // sem divisas: pega a capital mais perto
         var best = -1, bd = 1e9;
         STATES.forEach(function (s, i) { var dx = (s.px || 0) - x, dy = (s.py || 0) - y, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = i; } });
@@ -714,7 +736,7 @@ $('map-canvas').addEventListener('click', function (e) {
 // =====================================================
 //  ONLINE (servidor): jogadores, notícias, chat, efeitos
 // =====================================================
-var evt = null, online = false, roomPlayers = [], logs = [], counts = {};
+var evt = null, online = false, solo = false, roomPlayers = [], logs = [], counts = {};
 var chat = { base: [], brasil: [], ch: 'base', open: false, unread: 0 };
 
 function setOnlineLine(t) { $('online-line').innerText = t; }
@@ -728,15 +750,15 @@ function post(path, obj) {
 
 function startOnline() {
     if (evt) { evt.close(); evt = null; }
-    online = false; roomPlayers = [];
-    if (!SERVER_URL) { setOnlineLine("🌐 Offline (abra o jogo pelo servidor para jogar com outras pessoas)"); localWelcome(); return; }
-    if (!window.EventSource) { setOnlineLine("🌐 Este navegador não suporta o modo online"); localWelcome(); return; }
+    online = false; solo = false; roomPlayers = [];
+    if (!SERVER_URL) { solo = true; setOnlineLine("🌐 Modo solo (abra o jogo pelo servidor para jogar com outras pessoas)"); localWelcome(); return; }
+    if (!window.EventSource) { solo = true; setOnlineLine("🌐 Este navegador não suporta o modo online (modo solo)"); localWelcome(); return; }
     setOnlineLine("🌐 Conectando...");
     var url = SERVER_URL + "/events?id=" + encodeURIComponent(me.id) + "&name=" + encodeURIComponent(me.name) +
               "&uf=" + me.uf + "&shirt=" + me.shirt;
     evt = new EventSource(url);
 
-    evt.onopen = function () { online = true; post("/act", { id: me.id, type: "sync", job: G.job }); };
+    evt.onopen = function () { online = true; lastStats = ""; post("/act", { id: me.id, type: "sync", job: G.job }); postStats(); };
     evt.addEventListener("init", function (e) {
         var d = JSON.parse(e.data);
         online = true;
@@ -745,6 +767,7 @@ function startOnline() {
         logs = d.log || [];
         chat.base = d.chat || []; chat.brasil = d.gchat || [];
         counts = d.counts || {};
+        T = d.totals || null; lastStats = ""; postStats();
         renderLogs(); renderChat(); updateUI();
     });
     evt.addEventListener("players", function (e) { roomPlayers = JSON.parse(e.data); updateUI(); });
@@ -756,6 +779,7 @@ function startOnline() {
         if (!chat.open || chat.ch !== d.ch) { if (d.m.id !== me.id) { chat.unread++; updateBadge(); } }
         if (chat.open && chat.ch === d.ch) renderChat();
     });
+    evt.addEventListener("totals", function (e) { T = JSON.parse(e.data); updateUI(); });
     evt.addEventListener("fx", function (e) { applyFx(JSON.parse(e.data).type); });
     evt.onerror = function () { online = false; setOnlineLine("🌐 Servidor fora do ar, tentando reconectar..."); };
 
@@ -771,8 +795,8 @@ function localWelcome() { if (!welcomed) { welcomed = true; logs.push({ t: Date.
 function getPlayers() {
     var list = (online && roomPlayers.length) ? roomPlayers.slice(0, 16) : [];
     var hasMe = false;
-    list.forEach(function (p) { if (p.id === me.id) { p.job = G.job; p.shirt = me.shirt; hasMe = true; } });
-    if (!hasMe) list.unshift({ id: me.id, name: me.name, shirt: me.shirt, job: G.job });
+    list.forEach(function (p) { if (p.id === me.id) { p.job = G.job; p.shirt = me.shirt; p.gb = B.goldBat ? 1 : 0; hasMe = true; } });
+    if (!hasMe) list.unshift({ id: me.id, name: me.name, shirt: me.shirt, job: G.job, gb: B.goldBat ? 1 : 0 });
     var jobs = ["coletador", "barricada", "guarda", "medico"];
     for (var i = 0; i < DBG.fake; i++) list.push({ id: "fake" + i, name: "Bot" + (i + 1), shirt: (i * 57 + 20) % 360, job: jobs[i % 4] });
     return list;
@@ -910,9 +934,9 @@ function toggleSound() {
 //  EMPREGOS, AÇÕES, NOITE, TROCADOR
 // =====================================================
 var JOBS = {
-    coletador: { ico: "🌾", nome: "Coletor", desc: "Cata alimentos e sucatas: traz comida e água para todos da base e sucata para você.", period: 60 },
-    barricada: { ico: "🔨", nome: "Barricadeiro", desc: "Monta barricadas: reforça a defesa de todos da base.", period: 60 },
-    guarda: { ico: "⚔️", nome: "Guarda", desc: "Protege a base dos zumbis às 21:00. Cada guarda reduz o dano da horda.", period: 300 },
+    coletador: { ico: "🌾", nome: "Coletor", desc: "Cata alimentos e sucatas para você (e aumenta o total da base).", period: 60 },
+    barricada: { ico: "🔨", nome: "Barricadeiro", desc: "Monta barricadas: aumenta a sua defesa.", period: 60 },
+    guarda: { ico: "⚔️", nome: "Guarda", desc: "Protege a base dos zumbis às 21:00: cada guarda reduz o dano da horda de todos da base.", period: 300 },
     medico: { ico: "🩺", nome: "Médico", desc: "Regenera o HP de todos da base.", period: 120 }
 };
 var lastJobChange = 0, jobClock = 0, sec = 0;
@@ -939,71 +963,92 @@ function chooseJob(j) {
     buildJobs(); updateUI(); saveLocal();
 }
 
-function applyFx(type) {
-    if (type === "heal") G.hp = Math.min(100, G.hp + 10);
-    else if (type === "barricade") G.defense += 6;
-    else if (type === "supply") { G.food += 4; G.water += 4; }
-    updateUI();
-}
-
-function doAction() {
-    if (!G.job) return;
-    if (G.job === "coletador") G.scrap += 4;
-    if (online) post("/act", { id: me.id, type: "action" });
-    else {
-        localLog(jobText(G.job, me.name));
-        var fx = { coletador: "supply", barricada: "barricade", medico: "heal" }[G.job];
-        if (fx) applyFx(fx);
-    }
-}
-
-function clickScrap() { G.scrap += 1; updateUI(); }
-
-function countGuards() { return getPlayers().filter(function (p) { return p.job === "guarda"; }).length; }
-
-function nightPhase() {
-    var need = 4;
-    if (G.food >= need && G.water >= need) { G.food -= need; G.water -= need; }
-    else { G.hp = Math.max(0, G.hp - 25); toast("🚨 Faltou comida ou água no jantar das 21h! (-25% HP)"); }
-    var dano = Math.floor(Math.random() * 20) + 25;
-    dano = Math.max(5, dano - countGuards() * 15);
-    var ok;
-    if (G.defense >= dano) { G.defense -= dano; ok = true; toast("🛡️ As barricadas seguraram a horda!"); }
-    else { G.hp = Math.max(0, G.hp - (dano - G.defense)); G.defense = 0; ok = false; toast("🚨 Os zumbis invadiram a base!"); }
-    if (online) post("/act", { id: me.id, type: ok ? "raid_ok" : "raid_fail" });
-    else localLog(ok ? "🛡️ As barricadas de " + me.name + " seguraram a horda!" : "🚨 A horda invadiu a base de " + me.name + "!");
-    if (G.hp <= 0) { G.hp = 30; G.defense = 10; toast("💀 A base caiu... vocês se reorganizaram com pouca vida."); }
-}
-
-// ---------- trocador (quartas) e moeda de prata ----------
+// ---------- seus recursos ----------
 var ITEMS = [
     { id: "racao", ico: "🍖", nome: "Ração", preco: 4, desc: "+20 comida e +20 água" },
     { id: "kit", ico: "🩹", nome: "Kit médico", preco: 6, desc: "+40 de vida" },
     { id: "reforco", ico: "🧱", nome: "Reforço", preco: 8, desc: "+30 de defesa" },
-    { id: "bastao", ico: "🏏", nome: "Bastão dourado", preco: 12, desc: "Os guardas usam um bastão dourado" }
+    { id: "bastao", ico: "🏏", nome: "Bastão dourado", preco: 12, desc: "Seu bastão de guarda fica dourado" }
 ];
+
+function personalTick() { // a cada 5 segundos
+    if (B.hp <= 0) return;
+    B.food += 1; B.water += 1; B.scrap += 1; // todo mundo cata um pouco
+    if (G.job === "coletador") { B.food += 3; B.water += 3; B.scrap += 2; }
+    else if (G.job === "barricada") B.defense += 3;
+    else if (G.job === "medico") B.hp = Math.min(100, B.hp + 2);
+    ["food", "water", "scrap", "defense"].forEach(function (k) { B[k] = Math.min(9999, B[k]); });
+}
+
+function applyFx(type) { // efeito vindo de outro jogador da base
+    if (type === "heal") B.hp = Math.min(100, B.hp + 10);
+    updateUI();
+}
+
+function doAction() { // ação periódica do emprego
+    if (!G.job) return;
+    if (G.job === "coletador") { B.scrap += 4; B.food += 4; B.water += 4; }
+    else if (G.job === "barricada") B.defense += 6;
+    if (online) post("/act", { id: me.id, type: "action" }); // o servidor avisa a base (e o médico cura todos)
+    else { localLog(jobText(G.job, me.name)); if (G.job === "medico") applyFx("heal"); }
+}
+
+function clickScrap() { B.scrap += 1; updateUI(); }
+
+function countGuards() { return getPlayers().filter(function (p) { return p.job === "guarda"; }).length; }
+
+function nightPhase() { // 21:00: jantar + horda (os guardas da base protegem todos)
+    var need = 2;
+    if (B.food >= need && B.water >= need) { B.food -= need; B.water -= need; }
+    else { B.hp = Math.max(0, B.hp - 25); toast("🚨 Faltou comida ou água no jantar das 21h! (-25% HP)"); }
+    var dano = Math.floor(Math.random() * 20) + 25;
+    dano = Math.max(5, dano - countGuards() * 15);
+    var ok;
+    if (B.defense >= dano) { B.defense -= dano; ok = true; toast("🛡️ As barricadas seguraram a horda!"); }
+    else { B.hp = Math.max(0, B.hp - (dano - B.defense)); B.defense = 0; ok = false; toast("🚨 Os zumbis invadiram a base!"); }
+    if (online) post("/act", { id: me.id, type: ok ? "raid_ok" : "raid_fail" });
+    else localLog(ok ? "🛡️ As barricadas de " + me.name + " seguraram a horda!" : "🚨 A horda invadiu a base de " + me.name + "!");
+    if (B.hp <= 0) { B.hp = 30; B.defense = 10; toast("💀 Você caiu... e voltou com pouca vida."); }
+}
+
+// manda seus recursos para o servidor somar o total da base
+var lastStats = "";
+function postStats() {
+    if (!online) return;
+    var o = { id: me.id, food: B.food, water: B.water, scrap: B.scrap, defense: B.defense, silver: B.silver, gb: B.goldBat ? 1 : 0 };
+    var str = JSON.stringify(o);
+    if (str === lastStats) return;
+    lastStats = str;
+    post("/stats", o);
+}
+
+// ---------- trocador (quartas) e moeda de prata (sua) ----------
 function tradeScrap() {
     if (!isWed()) { toast("O trocador só aparece às quartas-feiras."); return; }
-    if (G.scrap < 10) { toast("Você precisa de 10 sucatas."); return; }
-    G.scrap -= 10; G.silver += 5;
+    if (B.scrap < 10) { toast("Você precisa de 10 sucatas."); return; }
+    B.scrap -= 10; B.silver += 5;
+    if (online) post("/act", { id: me.id, type: "trade_log" });
+    else localLog("🥈 " + me.name + " trocou 10 sucatas por 5 moedas de prata com o trocador!");
     toast("Trocou 10 sucatas por 5 moedas de prata 🥈"); updateUI();
 }
 function buyItem(id) {
     if (!isWed()) { toast("O trocador só aparece às quartas-feiras."); return; }
     var it = ITEMS.filter(function (i) { return i.id === id; })[0];
     if (!it) return;
-    if (id === "bastao" && G.goldBat) { toast("Você já tem o bastão dourado."); return; }
-    if (G.silver < it.preco) { toast("Moedas de prata insuficientes."); return; }
-    G.silver -= it.preco;
-    if (id === "racao") { G.food += 20; G.water += 20; }
-    else if (id === "kit") G.hp = Math.min(100, G.hp + 40);
-    else if (id === "reforco") G.defense += 30;
-    else if (id === "bastao") G.goldBat = true;
+    if (id === "bastao" && B.goldBat) { toast("Você já tem o bastão dourado."); return; }
+    if (B.silver < it.preco) { toast("Moedas de prata insuficientes."); return; }
+    B.silver -= it.preco;
+    if (id === "racao") { B.food += 20; B.water += 20; }
+    else if (id === "kit") B.hp = Math.min(100, B.hp + 40);
+    else if (id === "reforco") B.defense += 30;
+    else if (id === "bastao") B.goldBat = true;
+    if (online) post("/act", { id: me.id, type: "buy_log", item: id });
+    else localLog("🛒 " + me.name + " comprou " + it.nome + "!");
     toast("Comprou: " + it.nome); updateUI();
 }
 var traderKey = "";
 function renderTrader() {
-    var wed = isWed(), key = wed + "|" + G.silver + "|" + G.goldBat;
+    var wed = isWed(), key = wed + "|" + B.silver + "|" + B.goldBat;
     if (key === traderKey) return;
     traderKey = key;
     var box = $('trader-box');
@@ -1021,7 +1066,8 @@ function renderTrader() {
 function dbgRain() { DBG.rain = DBG.rain === null ? true : (DBG.rain === true ? false : null); $('d-rain').innerText = DBG.rain === null ? "auto" : (DBG.rain ? "sim" : "não"); }
 function dbgWed() { DBG.wed = DBG.wed === null ? true : (DBG.wed === true ? false : null); $('d-wed').innerText = DBG.wed === null ? "auto" : (DBG.wed ? "sim" : "não"); traderKey = ""; updateUI(); }
 function dbgFake(d) { DBG.fake = Math.max(0, Math.min(12, DBG.fake + d)); updateUI(); }
-function dbgHour(h) { DBG.hour = h; G.lastRaid = ""; updateUI(); }
+function dbgHour(h) { DBG.hour = h; B.lastRaid = ""; updateUI(); }
+function dbgRaid() { nightPhase(); updateUI(); }
 
 // =====================================================
 //  NÍVEL DA BASE
@@ -1056,9 +1102,11 @@ function genDecor() {
 }
 
 function resizeBase() {
-    var px = 2, w = $('base-view').clientWidth, h = $('base-view').clientHeight;
-    bc.width = Math.max(80, Math.floor(w / px));
-    bc.height = Math.max(40, Math.floor(h / px));
+    var w = $('base-view').clientWidth, h = $('base-view').clientHeight;
+    var dpr = Math.min(window.devicePixelRatio || 1, 2), cw = w * dpr, ch = h * dpr;
+    if (cw * ch > 1600000) { var f = Math.sqrt(1600000 / (cw * ch)); cw *= f; ch *= f; } // limite para PCs fracos
+    bc.width = Math.max(160, Math.floor(cw));
+    bc.height = Math.max(80, Math.floor(ch));
     if (!DECOR.length) genDecor();
     drawBase(Date.now());
 }
@@ -1141,13 +1189,13 @@ function person(x, y, u0, a, p, t, night) {
         rect(x - 0.9 * u, y - 0.8 * u - Math.max(0, bob) * 0.5 * u, 0.7 * u, 0.8 * u + Math.max(0, bob) * 0.5 * u, legs);
         rect(x + 0.2 * u, y - 0.8 * u - Math.max(0, -bob) * 0.5 * u, 0.7 * u, 0.8 * u + Math.max(0, -bob) * 0.5 * u, legs);
         if (st === 'stand' && p.job === 'guarda') { // bastão de beisebol na mão
-            ctx.strokeStyle = G.goldBat && p.id === me.id ? '#ffd54f' : '#c9a063';
+            ctx.strokeStyle = p.gb ? '#ffd54f' : '#c9a063';
             ctx.lineWidth = Math.max(1.5, 0.8 * u);
             ctx.beginPath(); ctx.moveTo(x + 1.1 * u, y - 2.2 * u); ctx.lineTo(x + 2.6 * u, y - 6.4 * u); ctx.stroke();
         }
     }
     // nome em cima do boneco (alterna a altura para os nomes não se cobrirem)
-    var fs = Math.max(6, Math.round(2.6 * u0));
+    var fs = Math.max(9, Math.round(3.3 * u0));
     var ny = y - 5.8 * u - (a.slot % 2) * fs * 1.05;
     ctx.font = 'bold ' + fs + 'px monospace'; ctx.textAlign = 'center';
     ctx.fillStyle = '#000'; ctx.fillText(p.name, x + 1, ny + 1);
@@ -1234,9 +1282,21 @@ function drawBase(t) {
     ctx.fillStyle = gr; ctx.fillRect(0, 0, W, g);
     if (night) {
         ctx.fillStyle = '#fff';
-        [[.1,.1],[.25,.2],[.4,.08],[.55,.18],[.7,.07],[.85,.2],[.93,.1],[.33,.3],[.62,.3],[.15,.32]].forEach(function (s) { ctx.fillRect(s[0] * W, s[1] * g, 1, 1); });
+        var sz = Math.max(1, Math.round(0.4 * u));
+        for (var si = 0; si < 45; si++) ctx.fillRect(Math.round(((si * 0.6180339) % 1) * W), Math.round(((si * 0.3819660 + 0.07) % 1) * g * 0.85), sz, sz);
         circ(W * 0.82, g * 0.18, 3 * u, '#eceff1');
     } else circ(W * 0.82, g * 0.18, 3.5 * u, dusk ? '#ff8a50' : '#ffe082');
+
+    // nuvens devagar no céu (de dia)
+    if (!night) {
+        ctx.fillStyle = rain ? 'rgba(110,120,135,0.9)' : (dusk ? 'rgba(255,225,200,0.6)' : 'rgba(255,255,255,0.8)');
+        for (var ci = 0; ci < 4; ci++) {
+            var cxp = (((ci * 0.31 + t / (700000 / (0.6 + ci * 0.25))) % 1.3) - 0.15) * W, cyp = g * (0.1 + ci * 0.075);
+            ctx.beginPath();
+            ctx.ellipse(cxp, cyp, 7 * u, 2 * u, 0, 0, 6.2832); ctx.ellipse(cxp - 4 * u, cyp + 0.6 * u, 4.5 * u, 1.7 * u, 0, 0, 6.2832); ctx.ellipse(cxp + 4.5 * u, cyp + 0.5 * u, 5 * u, 1.8 * u, 0, 0, 6.2832);
+            ctx.fill();
+        }
+    }
 
     // árvores ao fundo (pinheiros com pontas)
     for (var i = 0; i < TREEDEF.length; i++) pine(TREEDEF[i].x * W, g, TREEDEF[i].h * u, u, night);
@@ -1254,7 +1314,7 @@ function drawBase(t) {
         ctx.fillStyle = '#2b2b1d'; tri(cx - 23 * u, g, cx - 17 * u, g, cx - 20 * u, g - 9 * u);
     } else if (lvl === 2) {
         rect(cx - 40 * u, g - 17 * u, 32 * u, 17 * u, '#8d6e63');
-        ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 1;
+        ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = Math.max(1, 0.3 * u);
         for (var k = 1; k < 6; k++) { ctx.beginPath(); ctx.moveTo(cx - 40 * u, g - k * 3 * u); ctx.lineTo(cx - 8 * u, g - k * 3 * u); ctx.stroke(); }
         ctx.fillStyle = '#4e342e'; tri(cx - 44 * u, g - 17 * u, cx - 4 * u, g - 17 * u, cx - 24 * u, g - 31 * u);
         rect(cx - 27 * u, g - 10 * u, 6 * u, 10 * u, '#3e2723');
@@ -1307,7 +1367,7 @@ function drawBase(t) {
         rect(tx - 0.8 * u, ty - 8 * u, 1.6 * u, 1.6 * u, '#ffcc80'); rect(tx - 1.2 * u, ty - 8.5 * u, 2.4 * u, 0.6 * u, '#795548');
         rect(tx - 0.9 * u, ty - 6.4 * u, 1.8 * u, 2.4 * u, '#ffb300');
         circ(tx + 3 * u, ty - 4.6 * u, 0.9 * u, '#cfd8dc');
-        ctx.font = 'bold ' + Math.max(6, Math.round(2.4 * u)) + 'px monospace'; ctx.textAlign = 'center';
+        ctx.font = 'bold ' + Math.max(9, Math.round(3.2 * u)) + 'px monospace'; ctx.textAlign = 'center';
         ctx.fillStyle = '#000'; ctx.fillText('Trocador', tx + 1, ty - 10.5 * u + 1); ctx.fillStyle = '#e0e0e0'; ctx.fillText('Trocador', tx, ty - 10.5 * u);
     }
 
@@ -1324,10 +1384,12 @@ function drawBase(t) {
     // chuva
     if (rain) {
         ctx.fillStyle = 'rgba(25,35,60,0.32)'; ctx.fillRect(0, 0, W, H);
-        ctx.strokeStyle = 'rgba(190,210,255,0.6)'; ctx.lineWidth = 1;
-        for (var d = 0; d < 55; d++) {
-            var rx = (d * 37 + (t / 9)) % (W + 20) - 10, ry = ((d * 53) + t / 2.2) % H;
-            ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 2, ry + 5); ctx.stroke();
+        ctx.strokeStyle = 'rgba(190,210,255,0.6)'; ctx.lineWidth = Math.max(1, 0.3 * u);
+        var nd = Math.min(120, Math.round(W / 10)), len = 1.8 * u;
+        for (var d = 0; d < nd; d++) {
+            var rx = ((((d * 0.618034) % 1) * (W + 30) - t * 0.02 * u) % (W + 30) + (W + 30)) % (W + 30) - 15;
+            var ry = (((d * 0.381966) % 1) * H + t * 0.06 * u) % H;
+            ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - len * 0.35, ry + len); ctx.stroke();
         }
     }
 }
@@ -1344,25 +1406,31 @@ function tick1s() {
     var now = new Date();
     $('clock').innerText = ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2) + ":" + ("0" + now.getSeconds()).slice(-2);
     sec++;
-    if (sec % 20 === 0) { G.food += 1; G.water += 1; }
+    if (sec % 5 === 0) personalTick();
     if (G.job) { jobClock++; if (jobClock >= JOBS[G.job].period) { jobClock = 0; doAction(); } }
-    if (nowH() >= 21 && G.lastRaid !== todayKey()) { G.lastRaid = todayKey(); nightPhase(); }
+    if (nowH() >= 21 && B.lastRaid !== todayKey()) { B.lastRaid = todayKey(); nightPhase(); }
+    if (sec % 5 === 0) postStats();
     updateUI();
 }
 
 function updateUI() {
-    var lvl = lvlFromN(getPlayers().length), n = getPlayers().length;
+    var players = getPlayers(), n = players.length, lvl = lvlFromN(n);
     $('player-tag').innerText = me.name;
     $('hud-uf').innerText = me.uf;
-    $('hp').innerText = G.hp; $('defense').innerText = G.defense; $('food').innerText = G.food; $('water').innerText = G.water;
-    $('scrap').innerText = G.scrap; $('silver').innerText = G.silver;
-    $('b-hp').style.width = Math.min(100, G.hp) + "%";
-    $('b-def').style.width = Math.min(100, G.defense) + "%";
-    $('b-food').style.width = Math.min(100, G.food * 2) + "%";
-    $('b-water').style.width = Math.min(100, G.water * 2) + "%";
-    $('hud-res').innerText = "❤️" + G.hp + "%  🛡️" + G.defense + "  🍖" + G.food + "  🥤" + G.water + "  💰" + G.scrap + "  🥈" + G.silver;
+    $('hp').innerText = B.hp; $('defense').innerText = B.defense; $('food').innerText = B.food; $('water').innerText = B.water;
+    $('scrap').innerText = B.scrap; $('silver').innerText = B.silver;
+    $('b-hp').style.width = Math.min(100, B.hp) + "%";
+    $('b-def').style.width = Math.min(100, B.defense / 2) + "%";
+    $('b-food').style.width = Math.min(100, B.food * 2) + "%";
+    $('b-water').style.width = Math.min(100, B.water * 2) + "%";
+    $('hud-res').innerText = "❤️" + B.hp + "%  🛡️" + B.defense + "  🍖" + B.food + "  🥤" + B.water + "  💰" + B.scrap + "  🥈" + B.silver;
     $('hud-wx').innerText = (isRaining() ? "🌧️ " : "") + (localWx.temp !== null ? WX_TEXT[localWx.kind] + " " + Math.round(localWx.temp) + "°C" : "");
-    $('base-name').innerText = stByUf[me.uf] ? stByUf[me.uf].n : "-";
+    var stName = stByUf[me.uf] ? stByUf[me.uf].n : "-";
+    $('base-name').innerText = stName; $('tot-name').innerText = stName;
+    // total da base: soma de todos os jogadores desta base (só desta base)
+    var t = (online && T) ? T : { food: B.food, water: B.water, scrap: B.scrap, defense: B.defense, silver: B.silver, players: 1 };
+    $('tot-food').innerText = t.food; $('tot-water').innerText = t.water; $('tot-scrap').innerText = t.scrap;
+    $('tot-def').innerText = t.defense; $('tot-silver').innerText = t.silver; $('tot-n').innerText = t.players;
     $('lvl').innerText = lvl; $('lvl-name').innerText = LEVEL_NAMES[lvl]; $('bp').innerText = n;
     var need = lvl === 1 ? 3 : (lvl === 2 ? 5 : (lvl === 3 ? 10 : 0));
     $('lvl-next').innerText = need ? "(próximo nível com " + need + ")" : "(nível máximo)";
@@ -1378,7 +1446,7 @@ function bootGame() {
     if (!me.id) me.id = newId();
     if (typeof me.shirt !== 'number') me.shirt = hueFromId(me.id);
     genDecor(); AV = {}; welcomed = false; logs = []; renderLogs();
-    if (!gameStarted && !G.lastRaid && nowH() >= 21) G.lastRaid = todayKey();
+    if (!gameStarted && !B.lastRaid && nowH() >= 21) B.lastRaid = todayKey();
     if (!gameStarted) {
         gameStarted = true;
         setInterval(tick1s, 1000);
@@ -1398,3 +1466,4 @@ function bootGame() {
 </script>
 </body>
 </html>
+>
