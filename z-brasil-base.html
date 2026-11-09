@@ -5,80 +5,103 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Z-Brasil</title>
 <style>
-    html, body {
-        margin: 0; padding: 0; height: 100%; overflow: hidden;
-        background: #121212; color: #e0e0e0;
-        font-family: 'Courier New', Courier, monospace;
-    }
-    #app { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
+    html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#121212; color:#e0e0e0; font-family:'Courier New', Courier, monospace; }
+    #app { position:fixed; top:0; left:0; right:0; bottom:0; }
+    button { font-family:inherit; }
 
-    /* ---------- VISÃO 2D DA BASE ---------- */
-    #base-view { position: absolute; top: 0; left: 0; right: 0; background: #000; overflow: hidden; }
-    #base-canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: -moz-crisp-edges; }
-    #hud { position: absolute; top: 6px; left: 8px; right: 8px; pointer-events: none; font-size: 12px; text-shadow: 1px 1px 2px #000; }
-    #hud .row { display: flex; justify-content: space-between; }
-    #hud-res { margin-top: 3px; color: #ffe082; }
-    #player-tag { color: #64b5f6; font-weight: bold; }
-    #clock { color: #ffb74d; font-weight: bold; }
+    /* ---------- BASE 2D ---------- */
+    #base-view { position:absolute; top:0; left:0; right:0; background:#000; overflow:hidden; }
+    #base-canvas { width:100%; height:100%; display:block; image-rendering:pixelated; image-rendering:-moz-crisp-edges; }
+    #hud { position:absolute; top:6px; left:8px; right:8px; pointer-events:none; font-size:12px; text-shadow:1px 1px 2px #000; }
+    #hud .row { display:flex; justify-content:space-between; align-items:flex-start; }
+    #hud-res { margin-top:3px; color:#ffe082; }
+    #player-tag { color:#64b5f6; font-weight:bold; }
+    #clock { color:#ffb74d; font-weight:bold; }
+    #sound-btn { pointer-events:auto; background:rgba(0,0,0,.55); color:#fff; border:1px solid #666; border-radius:6px; padding:2px 7px; font-size:14px; cursor:pointer; }
+    #hud-wx { color:#81d4fa; }
 
     /* ---------- MENU ARRASTÁVEL ---------- */
-    #sheet {
-        position: absolute; left: 0; right: 0; bottom: 0;
-        background: #1a1a1a; border-top: 2px solid #4caf50;
-        display: flex; flex-direction: column; box-sizing: border-box;
-    }
-    #sheet-handle {
-        height: 30px; flex: none; cursor: ns-resize; background: #222;
-        display: flex; align-items: center; justify-content: center; gap: 10px;
-        font-size: 12px; color: #a5d6a7; user-select: none; -webkit-user-select: none;
-        touch-action: none;
-    }
-    .grip { width: 40px; height: 5px; border-radius: 3px; background: #4caf50; }
-    #sheet-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 14px 20px; }
+    #sheet { position:absolute; left:0; right:0; bottom:0; background:#1a1a1a; border-top:2px solid #4caf50; display:flex; flex-direction:column; box-sizing:border-box; }
+    #sheet-handle { height:30px; flex:none; cursor:ns-resize; background:#222; display:flex; align-items:center; justify-content:center; gap:10px; font-size:12px; color:#a5d6a7; user-select:none; -webkit-user-select:none; touch-action:none; }
+    .grip { width:40px; height:5px; border-radius:3px; background:#4caf50; }
+    #sheet-body { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:10px 14px 30px; }
 
-    #status-panel {
-        display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
-        background: #222; padding: 12px; font-size: 13px; border-radius: 3px;
-    }
-    .box { background: #252525; padding: 12px; margin: 10px 0; font-size: 13px; border-left: 3px solid #2196f3; border-radius: 3px; }
-    .box.base { border-left-color: #ff9800; }
-    .prof-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
-    .btn-sm { background: #2196f3; color: #fff; border: none; padding: 4px 10px; cursor: pointer; font-family: inherit; border-radius: 3px; }
-    .btn-main {
-        display: block; width: 100%; background: #2e7d32; color: #fff; border: none;
-        padding: 12px; margin: 8px 0; font-family: inherit; font-size: 14px;
-        cursor: pointer; border-radius: 3px; font-weight: bold;
-    }
-    .btn-alt { background: #455a64; }
-    #news-panel {
-        background: #111; border: 1px solid #444; padding: 10px; margin-top: 10px;
-        height: 130px; overflow-y: auto; font-size: 12px; color: #a5d6a7; border-radius: 3px;
-    }
+    .bars { background:#222; padding:10px 12px; border-radius:4px; font-size:12px; }
+    .bar { display:flex; align-items:center; gap:8px; margin:5px 0; }
+    .bar span { width:78px; flex:none; }
+    .bar b { width:34px; text-align:right; flex:none; }
+    .track { flex:1; height:9px; background:#111; border-radius:5px; overflow:hidden; }
+    .fill { height:100%; width:0; border-radius:5px; }
+    .fill.hp { background:#e53935; } .fill.def { background:#42a5f5; } .fill.food { background:#ffa726; } .fill.water { background:#26c6da; }
+    .chips { display:flex; gap:8px; margin:8px 0; }
+    .chips span { flex:1; background:#222; padding:8px; border-radius:4px; text-align:center; font-size:13px; }
+
+    .box { background:#252525; padding:12px; margin:10px 0; font-size:13px; border-left:3px solid #2196f3; border-radius:3px; }
+    .box.base { border-left-color:#ff9800; }
+    .box.trader { border-left-color:#bdbdbd; }
+    .jobs { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
+    .job { background:#2f2f2f; color:#ddd; border:2px solid #444; border-radius:6px; padding:8px 6px; font-size:12px; cursor:pointer; text-align:center; }
+    .job small { display:block; color:#999; margin-top:2px; }
+    .job.sel { border-color:#4caf50; background:#1f3a22; color:#fff; }
+    .btn-sm { background:#2196f3; color:#fff; border:none; padding:4px 10px; cursor:pointer; border-radius:3px; }
+    .btn-main { display:block; width:100%; background:#2e7d32; color:#fff; border:none; padding:12px; margin:8px 0; font-size:14px; cursor:pointer; border-radius:3px; font-weight:bold; }
+    .btn-alt { background:#455a64; }
+    .item-row { display:flex; justify-content:space-between; align-items:center; margin:7px 0; gap:6px; }
+    .item-row small { color:#999; display:block; }
+    #news-panel { background:#111; border:1px solid #444; padding:8px; margin-top:8px; height:150px; overflow-y:auto; font-size:12px; color:#a5d6a7; border-radius:3px; }
+    #news-panel div { margin-bottom:3px; }
+    details { margin:10px 0; font-size:12px; color:#999; }
+    details button { margin:3px 2px; }
+
+    /* ---------- CHAT ---------- */
+    #chat-btn { position:fixed; left:0; top:36%; z-index:900; background:#1b5e20; color:#fff; border:2px solid #4caf50; border-left:none; border-radius:0 10px 10px 0; padding:10px 8px; font-size:18px; cursor:pointer; }
+    #chat-badge { display:none; position:absolute; top:-6px; right:-6px; background:#e53935; color:#fff; border-radius:9px; font-size:11px; padding:1px 5px; }
+    #chat-panel { display:none; position:fixed; left:0; top:8%; width:90%; max-width:340px; height:55%; background:#161616; border:2px solid #4caf50; border-left:none; border-radius:0 10px 10px 0; z-index:950; flex-direction:column; }
+    #chat-panel.show { display:flex; }
+    #chat-head { display:flex; gap:4px; padding:6px; background:#222; border-radius:0 8px 0 0; }
+    #chat-head button { flex:1; background:#333; color:#ccc; border:none; padding:7px; border-radius:4px; cursor:pointer; }
+    #chat-head button.sel { background:#2e7d32; color:#fff; }
+    #chat-head .x { flex:none; width:36px; background:#7a2b2b; color:#fff; }
+    #chat-msgs { flex:1; overflow-y:auto; padding:8px; font-size:12px; word-wrap:break-word; }
+    .cm { margin-bottom:5px; color:#ddd; }
+    .cm.sys { color:#999; font-style:italic; }
+    #chat-form { display:flex; gap:4px; padding:6px; background:#222; }
+    #chat-input { flex:1; padding:8px; background:#2b2b2b; border:1px solid #444; color:#fff; font-family:inherit; border-radius:4px; min-width:0; }
+    #chat-form button { background:#2e7d32; color:#fff; border:none; border-radius:4px; padding:0 14px; cursor:pointer; }
 
     /* ---------- TELAS CHEIAS ---------- */
-    .overlay {
-        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-        background: rgba(10,10,10,0.96); z-index: 1000;
-        flex-direction: column; justify-content: center; align-items: center; text-align: center;
-    }
-    .overlay.show { display: flex; }
-    .card { background: #1e1e1e; padding: 22px; border: 2px solid #4caf50; border-radius: 8px; max-width: 420px; width: 90%; box-sizing: border-box; }
-    .input-name { width: 85%; padding: 10px; margin: 8px 0; background: #2b2b2b; border: 1px solid #444; color: #fff; font-family: inherit; text-align: center; }
-    #map-canvas { background: #0d2233; border: 2px solid #4caf50; border-radius: 4px; max-width: 100%; }
-    #map-info { font-size: 12px; color: #ffe082; margin: 6px 10px; min-height: 30px; max-width: 640px; }
-    #map-status { font-size: 11px; color: #999; }
-    .map-btns { display: flex; gap: 8px; width: 90%; max-width: 400px; }
+    .overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(10,10,10,0.96); z-index:1000; flex-direction:column; justify-content:center; align-items:center; text-align:center; }
+    .overlay.show { display:flex; }
+    .card { background:#1e1e1e; padding:22px; border:2px solid #4caf50; border-radius:8px; max-width:420px; width:90%; box-sizing:border-box; }
+    .input-name, select { width:85%; padding:10px; margin:8px 0; background:#2b2b2b; border:1px solid #444; color:#fff; font-family:inherit; text-align:center; }
+    #map-canvas { background:#0d2233; border:2px solid #4caf50; border-radius:4px; max-width:100%; }
+    #map-info { font-size:12px; color:#ffe082; margin:6px 10px; min-height:30px; max-width:640px; }
+    #map-status { font-size:11px; color:#999; }
+    .map-btns { display:flex; gap:8px; width:90%; max-width:400px; }
+    #loc-msg { font-size:12px; color:#ffb74d; min-height:16px; }
+    #toast { position:fixed; top:64px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.88); color:#fff; padding:8px 12px; border-radius:6px; font-size:12px; z-index:1200; display:none; max-width:90%; text-align:center; }
 </style>
 </head>
 <body>
 
-<!-- Escolha do codinome (só na primeira vez) -->
+<div id="toast"></div>
+
+<!-- Início: nome e localização -->
 <div id="start-overlay" class="overlay">
-    <div class="card">
+    <div class="card" id="step-name">
         <h2 style="color:#4caf50; margin-top:0;">Z-BRASIL</h2>
         <p style="margin-bottom:5px; font-size:14px;">Defina seu Codinome de Sobrevivente:</p>
         <input type="text" id="username-input" class="input-name" placeholder="Ex: Capitao_Zero" maxlength="15">
-        <button class="btn-main" onclick="confirmUsername()">Entrar na Base</button>
+        <button class="btn-main" onclick="confirmUsername()">Continuar</button>
+    </div>
+    <div class="card" id="step-loc" style="display:none;">
+        <h3 style="color:#4caf50; margin-top:0;">📍 Sua base</h3>
+        <p style="font-size:12px; color:#aaa;">Cada lugar do Brasil tem uma base. Com a localização, você entra na base do seu estado e vê a chuva real do seu local. A localização fica só no seu aparelho: o servidor recebe apenas o estado.</p>
+        <button class="btn-main" onclick="useGps()">📍 Usar minha localização</button>
+        <div style="font-size:12px; color:#888;">ou escolha o estado:</div>
+        <select id="uf-select"></select>
+        <button class="btn-main btn-alt" onclick="useManualUf()">Entrar na base deste estado</button>
+        <div id="loc-msg"></div>
     </div>
 </div>
 
@@ -86,7 +109,7 @@
 <div id="map-overlay" class="overlay">
     <div style="color:#4caf50; font-weight:bold; margin-bottom:6px;">🗺️ MAPA DO BRASIL — TEMPO AGORA</div>
     <canvas id="map-canvas"></canvas>
-    <div id="map-info">Toque numa cidade para ver o tempo.</div>
+    <div id="map-info">Toque num estado para ver a base e o tempo.</div>
     <div id="map-status"></div>
     <div class="map-btns">
         <button class="btn-main btn-alt" onclick="loadWeather(true)">🔄 Atualizar</button>
@@ -94,399 +117,143 @@
     </div>
 </div>
 
+<!-- Chat -->
+<button id="chat-btn" onclick="toggleChat()">💬<span id="chat-badge"></span></button>
+<div id="chat-panel">
+    <div id="chat-head">
+        <button id="tab-base" class="sel" onclick="setChatCh('base')">Base</button>
+        <button id="tab-brasil" onclick="setChatCh('brasil')">Brasil</button>
+        <button class="x" onclick="toggleChat()">✕</button>
+    </div>
+    <div id="chat-msgs"></div>
+    <div id="chat-form">
+        <input id="chat-input" maxlength="140" placeholder="Mensagem...">
+        <button onclick="sendChat()">➤</button>
+    </div>
+</div>
+
 <div id="app">
-    <!-- Metade de cima: base em 2D -->
     <div id="base-view">
         <canvas id="base-canvas"></canvas>
         <div id="hud">
             <div class="row">
-                <span>👤 <span id="player-tag">...</span></span>
-                <span>🕒 <span id="clock">00:00:00</span></span>
+                <span>👤 <span id="player-tag">...</span> · <span id="hud-uf"></span></span>
+                <span>🕒 <span id="clock">00:00:00</span> <button id="sound-btn" onclick="toggleSound()">🔊</button></span>
             </div>
             <div class="row">
                 <span id="hud-res"></span>
-                <span id="save-state" style="color:#aaa;font-size:11px;"></span>
+                <span id="hud-wx"></span>
             </div>
+            <div style="font-size:11px;color:#aaa;" id="save-state"></div>
         </div>
     </div>
 
-    <!-- Metade de baixo: menu que arrasta -->
     <div id="sheet">
         <div id="sheet-handle">
             <div class="grip"></div>
             <span id="handle-text">Arraste para cima/baixo</span>
         </div>
         <div id="sheet-body">
-            <div id="status-panel">
-                <div>👥 Sobreviventes: <span id="total-players">4</span></div>
-                <div>❤️ Vida: <span id="hp">100</span>%</div>
-                <div>🛡️ Defesa: <span id="defense">20</span></div>
-                <div>💰 Sucata: $<span id="scrap">10</span></div>
-                <div>🍖 Comida: <span id="food">15</span></div>
-                <div>🥤 Água: <span id="water">15</span></div>
+            <div class="bars">
+                <div class="bar"><span>❤️ Vida</span><div class="track"><div id="b-hp" class="fill hp"></div></div><b id="hp">100</b></div>
+                <div class="bar"><span>🛡️ Defesa</span><div class="track"><div id="b-def" class="fill def"></div></div><b id="defense">20</b></div>
+                <div class="bar"><span>🍖 Comida</span><div class="track"><div id="b-food" class="fill food"></div></div><b id="food">15</b></div>
+                <div class="bar"><span>🥤 Água</span><div class="track"><div id="b-water" class="fill water"></div></div><b id="water">15</b></div>
+            </div>
+            <div class="chips">
+                <span>💰 Sucata <b id="scrap">10</b></span>
+                <span>🥈 Prata <b id="silver">0</b></span>
             </div>
 
             <div class="box base">
-                <strong>🏕️ Base — Nível <span id="lvl">1</span>: <span id="lvl-name">Barraca</span></strong>
-                <div style="margin-top:6px;">Jogadores na base: <b id="bp">1</b> <span id="lvl-next" style="color:#aaa;"></span></div>
-                <div id="online-line" style="margin-top:6px;font-size:12px;color:#81d4fa;"></div>
-                <div id="test-controls" style="margin-top:8px;">
-                    <button class="btn-sm" onclick="changeBasePlayers(-1)">−</button>
-                    <button class="btn-sm" onclick="changeBasePlayers(1)">+</button>
-                    <span style="font-size:11px;color:#888;"> (modo teste dos níveis)</span>
+                <strong>🏕️ Base de <span id="base-name">-</span> — Nível <span id="lvl">1</span>: <span id="lvl-name">Barraca</span></strong>
+                <div style="margin-top:6px;">👥 Jogadores na base: <b id="bp">1</b> <span id="lvl-next" style="color:#aaa;"></span></div>
+                <div style="margin-top:4px;" id="online-line"></div>
+                <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button class="btn-sm" style="flex:1; padding:8px;" onclick="openMap()">🗺️ Mapa do Brasil</button>
+                    <button class="btn-sm" style="flex:1; padding:8px; background:#455a64;" onclick="openLocation()">📍 Mudar local</button>
                 </div>
             </div>
 
-            <button class="btn-main" onclick="clickScrap()">⚙️ Procurar Sucatas (+1)</button>
-            <button class="btn-main btn-alt" onclick="openMap()">🗺️ Abrir Mapa do Brasil</button>
-
             <div class="box">
-                <strong>Funções (Idle Passivo):</strong>
-                <div class="prof-row"><span>🌾 Coletadores: <b id="count-coletador">1</b></span><button class="btn-sm" onclick="buyProfession('coletador')">Contratar ($10)</button></div>
-                <div class="prof-row"><span>🔨 Barricadas: <b id="count-barricada">1</b></span><button class="btn-sm" onclick="buyProfession('barricada')">Contratar ($10)</button></div>
-                <div class="prof-row"><span>⚔️ Guardas (21:00): <b id="count-guarda">1</b></span><button class="btn-sm" onclick="buyProfession('guarda')">Contratar ($10)</button></div>
-                <div class="prof-row"><span>🩺 Médicos (5 em 5 min): <b id="count-medico">1</b></span><button class="btn-sm" onclick="buyProfession('medico')">Contratar ($10)</button></div>
+                <strong>Escolha seu emprego na base:</strong>
+                <div class="jobs" id="jobs"></div>
+                <div id="job-info" style="margin-top:8px; font-size:12px; color:#aaa;"></div>
             </div>
 
-            <div id="news-panel">Iniciando sistema de monitoramento...</div>
+            <button class="btn-main" onclick="clickScrap()">⚙️ Procurar Sucatas (+1)</button>
+
+            <div class="box trader" id="trader-box"></div>
+
+            <div class="box" style="border-left-color:#4caf50;">
+                <strong>📰 Notícias da base (online)</strong>
+                <div id="news-panel"></div>
+            </div>
+
+            <details>
+                <summary>🧪 Modo teste</summary>
+                <div style="margin-top:6px;">
+                    <button class="btn-sm" onclick="dbgRain()">Chuva: <span id="d-rain">auto</span></button>
+                    <button class="btn-sm" onclick="dbgWed()">Quarta: <span id="d-wed">auto</span></button>
+                    <button class="btn-sm" onclick="dbgFake(1)">+ jogador falso</button>
+                    <button class="btn-sm" onclick="dbgFake(-1)">− jogador falso</button>
+                </div>
+                <div style="margin-top:6px;">Hora:
+                    <button class="btn-sm" onclick="dbgHour(null)">auto</button>
+                    <button class="btn-sm" onclick="dbgHour(12)">12h</button>
+                    <button class="btn-sm" onclick="dbgHour(18.2)">18h</button>
+                    <button class="btn-sm" onclick="dbgHour(19.5)">19h</button>
+                    <button class="btn-sm" onclick="dbgHour(21.2)">21h</button>
+                </div>
+            </details>
         </div>
     </div>
 </div>
 
 <script>
 // =====================================================
-//  DADOS GERAIS
+//  CONFIGURAÇÃO
 // =====================================================
-var SAVE_KEY = "zbrasil_save";
+// Se abrir o jogo pelo servidor (http://IP:3000 ou o endereço da hospedagem), conecta sozinho.
+// Se o jogo estiver em outro lugar, escreva aqui o endereço do servidor.
+var SERVER_URL_MANUAL = "";
+var SERVER_URL = SERVER_URL_MANUAL ||
+    ((location.protocol === "http:" || location.protocol === "https:") ? location.origin : "");
+
+var SAVE_KEY = "zbrasil_save2", OLD_KEY = "zbrasil_save", GEO_KEY = "zbrasil_geo1";
+var GEO_URL = "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo+json&qualidade=minima&intrarregiao=UF";
+
 var blacklistedWords = [
     "pau","pinto","bunda","vagina","penis","buceta","caralho",
     "droga","maconha","cocaina","crack","lança","arma","fuzil",
     "pistola","oitão","assassinar","matar","biqueira","trafico"
 ];
 
-var playerName = "Sobrevivente";
-var gameStarted = false;
-var gameState = defaultState();
-
-function defaultState() {
-    return {
-        hp: 100, defense: 20, scrap: 10, food: 15, water: 15,
-        professions: { coletador: 1, barricada: 1, guarda: 1, medico: 1 },
-        basePlayers: 1,
-        attackTriggered: false,
-        lastHealMinutes: new Date().getMinutes()
-    };
-}
-
 function $(id) { return document.getElementById(id); }
 
 // =====================================================
-//  SALVAMENTO LOCAL (automático a cada 2 segundos)
+//  ESTADOS DO BRASIL
 // =====================================================
-var lastSaved = "";
+var STATES = [
+    ["AC","Acre","12","Rio Branco",-9.97,-67.81],["AL","Alagoas","27","Maceió",-9.67,-35.74],
+    ["AP","Amapá","16","Macapá",0.03,-51.07],["AM","Amazonas","13","Manaus",-3.12,-60.02],
+    ["BA","Bahia","29","Salvador",-12.97,-38.51],["CE","Ceará","23","Fortaleza",-3.73,-38.53],
+    ["DF","Distrito Federal","53","Brasília",-15.79,-47.88],["ES","Espírito Santo","32","Vitória",-20.32,-40.34],
+    ["GO","Goiás","52","Goiânia",-16.68,-49.25],["MA","Maranhão","21","São Luís",-2.53,-44.30],
+    ["MT","Mato Grosso","51","Cuiabá",-15.60,-56.10],["MS","Mato Grosso do Sul","50","Campo Grande",-20.44,-54.65],
+    ["MG","Minas Gerais","31","Belo Horizonte",-19.92,-43.94],["PA","Pará","15","Belém",-1.46,-48.50],
+    ["PB","Paraíba","25","João Pessoa",-7.12,-34.86],["PR","Paraná","41","Curitiba",-25.43,-49.27],
+    ["PE","Pernambuco","26","Recife",-8.05,-34.88],["PI","Piauí","22","Teresina",-5.09,-42.80],
+    ["RJ","Rio de Janeiro","33","Rio de Janeiro",-22.91,-43.17],["RN","Rio Grande do Norte","24","Natal",-5.79,-35.21],
+    ["RS","Rio Grande do Sul","43","Porto Alegre",-30.03,-51.23],["RO","Rondônia","11","Porto Velho",-8.76,-63.90],
+    ["RR","Roraima","14","Boa Vista",2.82,-60.67],["SC","Santa Catarina","42","Florianópolis",-27.60,-48.55],
+    ["SP","São Paulo","35","São Paulo",-23.55,-46.63],["SE","Sergipe","28","Aracaju",-10.91,-37.07],
+    ["TO","Tocantins","17","Palmas",-10.18,-48.33]
+].map(function (a) { return { s: a[0], n: a[1], code: a[2], cap: a[3], lat: a[4], lon: a[5] }; });
+var stByUf = {}, stByCode = {};
+STATES.forEach(function (s) { stByUf[s.s] = s; stByCode[s.code] = s; });
 
-function readLocal() {
-    try {
-        var raw = localStorage.getItem(SAVE_KEY);
-        return raw ? JSON.parse(raw) : null;
-    } catch (e) { return null; }
-}
-
-function saveLocal() {
-    try {
-        var s = JSON.stringify({ name: playerName, gameState: gameState });
-        if (s === lastSaved) return; // nada mudou, não regrava
-        localStorage.setItem(SAVE_KEY, s);
-        lastSaved = s;
-        $('save-state').innerText = "💾 Salvo " + new Date().toLocaleTimeString('pt-BR');
-    } catch (e) {
-        $('save-state').innerText = "⚠️ Falha ao salvar";
-    }
-}
-
-// =====================================================
-//  INÍCIO
-// =====================================================
-function confirmUsername() {
-    var raw = $('username-input').value.trim();
-    var input = raw.toLowerCase();
-    if (input.length < 3) { alert("O nome precisa ter pelo menos 3 caracteres!"); return; }
-    for (var i = 0; i < blacklistedWords.length; i++) {
-        if (input.indexOf(blacklistedWords[i]) !== -1) {
-            alert("Esse codinome contém palavras proibidas. Escolha outro!");
-            return;
-        }
-    }
-    playerName = raw;
-    $('start-overlay').classList.remove('show');
-    initGame();
-    saveLocal();
-}
-
-window.onload = function () {
-    layout();
-    var local = readLocal();
-    if (local && local.gameState) {
-        playerName = local.name || playerName;
-        gameState = Object.assign(defaultState(), local.gameState);
-        initGame();
-    } else {
-        $('start-overlay').classList.add('show');
-    }
-};
-
-// =====================================================
-//  MENU ARRASTÁVEL  (baixou muito = base em tela cheia)
-// =====================================================
-var HANDLE_H = 30;
-var sheetH = null;
-var dragging = false, dragStartY = 0, dragStartH = 0, dragMoved = false;
-
-function layout() {
-    var ch = $('app').clientHeight;
-    if (sheetH === null) sheetH = Math.round(ch * 0.5);
-    sheetH = Math.max(HANDLE_H, Math.min(sheetH, Math.round(ch * 0.88)));
-    $('sheet').style.height = sheetH + "px";
-    $('base-view').style.height = (ch - sheetH) + "px";
-    $('handle-text').innerText = (sheetH <= HANDLE_H + 2)
-        ? "▲ Puxe para abrir o menu"
-        : "▼ Arraste para baixo para ver só a base";
-    resizeBase();
-}
-
-function startDrag(y) {
-    dragging = true; dragMoved = false;
-    dragStartY = y; dragStartH = sheetH;
-}
-function moveDrag(y) {
-    if (!dragging) return;
-    var dy = dragStartY - y;
-    if (Math.abs(dy) > 4) dragMoved = true;
-    sheetH = dragStartH + dy;
-    layout();
-}
-function endDrag() {
-    if (!dragging) return;
-    dragging = false;
-    var ch = $('app').clientHeight;
-    if (!dragMoved) {
-        // toque simples: alterna entre menu aberto e base em tela cheia
-        sheetH = (sheetH <= HANDLE_H + 2) ? Math.round(ch * 0.5) : HANDLE_H;
-    } else if (sheetH < HANDLE_H + ch * 0.12) {
-        sheetH = HANDLE_H; // abaixou muito: abre a tela da base
-    }
-    layout();
-}
-
-(function () {
-    var h = $('sheet-handle');
-    h.addEventListener('mousedown', function (e) { startDrag(e.clientY); e.preventDefault(); });
-    h.addEventListener('touchstart', function (e) { startDrag(e.touches[0].clientY); }, { passive: true });
-    document.addEventListener('mousemove', function (e) { moveDrag(e.clientY); });
-    document.addEventListener('touchmove', function (e) {
-        if (dragging) { moveDrag(e.touches[0].clientY); e.preventDefault(); }
-    }, { passive: false });
-    document.addEventListener('mouseup', endDrag);
-    document.addEventListener('touchend', function (e) {
-        if (dragging) { endDrag(); e.preventDefault(); }
-    }, { passive: false });
-    window.addEventListener('resize', layout);
-})();
-
-// =====================================================
-//  BASE EM 2D (canvas pequeno, esticado = leve)
-// =====================================================
-var bc = $('base-canvas');
-var ctx = bc.getContext('2d');
-var LEVEL_NAMES = ["", "Barraca", "Cabana de madeira", "Casa abandonada", "Loja abandonada"];
-var lastLevel = 1;
-
-function getLevel() {
-    var n = gameState.basePlayers;
-    if (n >= 10) return 4;
-    if (n >= 5) return 3;
-    if (n >= 3) return 2;
-    return 1;
-}
-
-function resizeBase() {
-    var px = 3; // cada pixel do canvas vira 3 na tela
-    var w = $('base-view').clientWidth, h = $('base-view').clientHeight;
-    bc.width = Math.max(80, Math.floor(w / px));
-    bc.height = Math.max(40, Math.floor(h / px));
-    drawBase(Date.now());
-}
-
-function tri(ax, ay, bx, by, cx, cy) {
-    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(cx, cy); ctx.closePath(); ctx.fill();
-}
-function rect(x, y, w, h, col) { ctx.fillStyle = col; ctx.fillRect(x, y, w, h); }
-function circ(x, y, r, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); }
-
-function fire(x, y, u, t, night) {
-    var f = Math.sin(t / 90) * 0.6 + Math.sin(t / 37) * 0.4;
-    if (night) circ(x, y - 2 * u, 9 * u + f * u, 'rgba(255,150,40,0.16)');
-    rect(x - 3 * u, y - 1 * u, 6 * u, 1.2 * u, '#4e342e');
-    ctx.fillStyle = '#e65100'; tri(x - 2.2 * u, y - u, x + 2.2 * u, y - u, x, y - (6 + f) * u);
-    ctx.fillStyle = '#ffb300'; tri(x - 1.4 * u, y - u, x + 1.4 * u, y - u, x, y - (4.2 + f * 0.7) * u);
-    ctx.fillStyle = '#fff59d'; tri(x - 0.7 * u, y - u, x + 0.7 * u, y - u, x, y - (2.4 + f * 0.4) * u);
-}
-
-function person(x, y, u, col) {
-    rect(x - 0.7 * u, y - 4.4 * u, 1.4 * u, 1.4 * u, '#ffcc80');
-    rect(x - 0.9 * u, y - 3 * u, 1.8 * u, 2.2 * u, col);
-    rect(x - 0.9 * u, y - 0.8 * u, 0.7 * u, 0.8 * u, '#37474f');
-    rect(x + 0.2 * u, y - 0.8 * u, 0.7 * u, 0.8 * u, '#37474f');
-}
-
-function vine(x, y, u, n) {
-    for (var i = 0; i < n; i++) {
-        circ(x + (i % 3) * 1.6 * u, y + Math.floor(i / 3) * 1.4 * u, 1.5 * u, i % 2 ? '#2e6b2a' : '#3f8a35');
-    }
-}
-
-var STARS = [[.1,.1],[.25,.2],[.4,.08],[.55,.18],[.7,.07],[.85,.2],[.93,.1],[.33,.3],[.62,.3],[.15,.32]];
-var TREES = [.04,.14,.27,.62,.75,.88,.96];
-
-function drawBase(t) {
-    var W = bc.width, H = bc.height;
-    var u = Math.min(H / 100, W / 125);
-    var cx = W / 2, g = H * 0.72;
-
-    // céu conforme a hora real
-    var d = new Date(), hr = d.getHours() + d.getMinutes() / 60;
-    var night = hr < 5.5 || hr >= 18.5;
-    var dusk = (hr >= 17 && hr < 18.5) || (hr >= 5.5 && hr < 7);
-    var c1 = night ? '#0b1026' : (dusk ? '#d9774a' : '#5ab0e0');
-    var c2 = night ? '#1b2a4a' : (dusk ? '#f6c27a' : '#bfe6f5');
-    var gr = ctx.createLinearGradient(0, 0, 0, g);
-    gr.addColorStop(0, c1); gr.addColorStop(1, c2);
-    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, g);
-
-    if (night) {
-        ctx.fillStyle = '#fff';
-        for (var s = 0; s < STARS.length; s++) ctx.fillRect(STARS[s][0] * W, STARS[s][1] * g, 1, 1);
-        circ(W * 0.82, g * 0.18, 3 * u, '#eceff1');
-    } else {
-        circ(W * 0.82, g * 0.18, 3.5 * u, dusk ? '#ff8a50' : '#ffe082');
-    }
-
-    // árvores ao fundo
-    ctx.fillStyle = night ? '#0d2112' : '#1f4d2a';
-    for (var i = 0; i < TREES.length; i++) {
-        var tx = TREES[i] * W;
-        tri(tx - 6 * u, g, tx + 6 * u, g, tx, g - (18 + (i % 3) * 4) * u);
-    }
-
-    // chão
-    rect(0, g, W, H - g, night ? '#1c2616' : '#3b4a2a');
-    rect(0, g, W, 1.2 * u, night ? '#111a0d' : '#2c381f');
-
-    var lvl = getLevel();
-    var fx = cx + 10 * u, fy = g + 3 * u; // fogueira no chão
-
-    if (lvl === 1) {
-        // barraca
-        ctx.fillStyle = '#6d7f3b'; tri(cx - 32 * u, g, cx - 8 * u, g, cx - 20 * u, g - 20 * u);
-        ctx.fillStyle = '#4e5c28'; tri(cx - 20 * u, g - 20 * u, cx - 8 * u, g, cx - 14 * u, g);
-        ctx.fillStyle = '#2b2b1d'; tri(cx - 23 * u, g, cx - 17 * u, g, cx - 20 * u, g - 9 * u);
-    } else if (lvl === 2) {
-        // cabana de madeira
-        rect(cx - 40 * u, g - 17 * u, 32 * u, 17 * u, '#8d6e63');
-        ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 1;
-        for (var k = 1; k < 6; k++) { ctx.beginPath(); ctx.moveTo(cx - 40 * u, g - k * 3 * u); ctx.lineTo(cx - 8 * u, g - k * 3 * u); ctx.stroke(); }
-        ctx.fillStyle = '#4e342e'; tri(cx - 44 * u, g - 17 * u, cx - 4 * u, g - 17 * u, cx - 24 * u, g - 31 * u);
-        rect(cx - 27 * u, g - 10 * u, 6 * u, 10 * u, '#3e2723');
-        rect(cx - 37 * u, g - 13 * u, 5 * u, 5 * u, night ? '#ffcc80' : '#5d4037');
-        rect(cx - 15 * u, g - 13 * u, 5 * u, 5 * u, night ? '#ffcc80' : '#5d4037');
-    } else if (lvl === 3) {
-        // casa abandonada cheia de mato
-        rect(cx - 46 * u, g - 22 * u, 36 * u, 22 * u, '#8a8576');
-        rect(cx - 46 * u, g - 22 * u, 36 * u, 2 * u, '#756f61');
-        ctx.fillStyle = '#5d4a3a';
-        ctx.beginPath();
-        ctx.moveTo(cx - 49 * u, g - 22 * u); ctx.lineTo(cx - 32 * u, g - 37 * u); ctx.lineTo(cx - 24 * u, g - 31 * u);
-        ctx.lineTo(cx - 20 * u, g - 35 * u); ctx.lineTo(cx - 7 * u, g - 22 * u); ctx.closePath(); ctx.fill();
-        rect(cx - 41 * u, g - 16 * u, 6 * u, 7 * u, '#1b1b1b');
-        rect(cx - 21 * u, g - 16 * u, 6 * u, 7 * u, '#1b1b1b');
-        rect(cx - 31 * u, g - 11 * u, 6 * u, 11 * u, '#2a2118');
-        vine(cx - 46 * u, g - 20 * u, u, 6); vine(cx - 16 * u, g - 14 * u, u, 6);
-        vine(cx - 36 * u, g - 33 * u, u, 3); vine(cx - 30 * u, g - 8 * u, u, 3);
-        for (var m = 0; m < 12; m++) rect(cx - 50 * u + m * 4 * u, g - 1.5 * u, 1.2 * u, 2 * u, '#3f8a35');
-    } else {
-        // loja média abandonada, com fogueira e mini cabanas no topo
-        var top = g - 26 * u;
-        rect(cx - 54 * u, top, 62 * u, 26 * u, '#75757d');
-        rect(cx - 56 * u, top - 2 * u, 66 * u, 3 * u, '#5a5a62');
-        rect(cx - 50 * u, top + 3 * u, 28 * u, 6 * u, '#8b3a3a');
-        ctx.fillStyle = '#d7ccc8';
-        ctx.font = 'bold ' + Math.max(6, Math.round(4.5 * u)) + 'px monospace';
-        ctx.fillText('LOJA', cx - 44 * u, top + 8 * u);
-        rect(cx - 50 * u, top + 12 * u, 9 * u, 8 * u, '#202428');
-        rect(cx - 37 * u, top + 12 * u, 9 * u, 8 * u, '#202428');
-        rect(cx - 24 * u, top + 12 * u, 9 * u, 8 * u, '#202428');
-        rect(cx - 8 * u, top + 8 * u, 12 * u, 18 * u, '#1a2a30');
-        vine(cx - 54 * u, top + 6 * u, u, 6); vine(cx - 14 * u, top + 12 * u, u, 6);
-        // mini cabanas no topo
-        for (var c = 0; c < 3; c++) {
-            var hx = cx - 50 * u + c * 11 * u;
-            rect(hx, top - 6 * u, 7 * u, 4 * u, '#8d6e63');
-            ctx.fillStyle = '#4e342e'; tri(hx - 1 * u, top - 6 * u, hx + 8 * u, top - 6 * u, hx + 3.5 * u, top - 10 * u);
-        }
-        fire(cx - 12 * u, top - 1 * u, u, t, night); // fogueira no topo
-        fx = cx + 22 * u; // sem fogueira no chão: só as pessoas ficam aqui
-    }
-
-    if (lvl !== 4) fire(fx, fy, u, t, night);
-
-    // jogadores (um boneco por jogador, até 10)
-    var n = Math.min(gameState.basePlayers, 10);
-    var cols = ['#ef5350', '#42a5f5', '#66bb6a', '#ffa726', '#ab47bc'];
-    for (var p = 0; p < n; p++) {
-        person((lvl === 4 ? cx + 14 * u : cx + 16 * u) + (p % 5) * 5 * u, g + 7 * u + Math.floor(p / 5) * 6 * u, u, cols[p % 5]);
-    }
-}
-
-setInterval(function () {
-    if (!gameStarted || document.hidden) return;
-    if ($('map-overlay').classList.contains('show')) return;
-    drawBase(Date.now());
-}, 120);
-
-// =====================================================
-//  MAPA DO BRASIL + CLIMA EM TEMPO REAL (Open-Meteo)
-// =====================================================
-var CITIES = [
-    { n: "Rio Branco", s: "AC", lat: -9.97, lon: -67.81 },
-    { n: "Maceió", s: "AL", lat: -9.67, lon: -35.74 },
-    { n: "Macapá", s: "AP", lat: 0.03, lon: -51.07 },
-    { n: "Manaus", s: "AM", lat: -3.12, lon: -60.02 },
-    { n: "Salvador", s: "BA", lat: -12.97, lon: -38.51 },
-    { n: "Fortaleza", s: "CE", lat: -3.73, lon: -38.53 },
-    { n: "Brasília", s: "DF", lat: -15.79, lon: -47.88 },
-    { n: "Vitória", s: "ES", lat: -20.32, lon: -40.34 },
-    { n: "Goiânia", s: "GO", lat: -16.68, lon: -49.25 },
-    { n: "São Luís", s: "MA", lat: -2.53, lon: -44.30 },
-    { n: "Cuiabá", s: "MT", lat: -15.60, lon: -56.10 },
-    { n: "Campo Grande", s: "MS", lat: -20.44, lon: -54.65 },
-    { n: "Belo Horizonte", s: "MG", lat: -19.92, lon: -43.94 },
-    { n: "Belém", s: "PA", lat: -1.46, lon: -48.50 },
-    { n: "João Pessoa", s: "PB", lat: -7.12, lon: -34.86 },
-    { n: "Curitiba", s: "PR", lat: -25.43, lon: -49.27 },
-    { n: "Recife", s: "PE", lat: -8.05, lon: -34.88 },
-    { n: "Teresina", s: "PI", lat: -5.09, lon: -42.80 },
-    { n: "Rio de Janeiro", s: "RJ", lat: -22.91, lon: -43.17 },
-    { n: "Natal", s: "RN", lat: -5.79, lon: -35.21 },
-    { n: "Porto Alegre", s: "RS", lat: -30.03, lon: -51.23 },
-    { n: "Porto Velho", s: "RO", lat: -8.76, lon: -63.90 },
-    { n: "Boa Vista", s: "RR", lat: 2.82, lon: -60.67 },
-    { n: "Florianópolis", s: "SC", lat: -27.60, lon: -48.55 },
-    { n: "São Paulo", s: "SP", lat: -23.55, lon: -46.63 },
-    { n: "Aracaju", s: "SE", lat: -10.91, lon: -37.07 },
-    { n: "Palmas", s: "TO", lat: -10.18, lon: -48.33 }
-];
-
-// Contorno aproximado do Brasil [lon, lat]
+// Contorno aproximado do Brasil (só usado se o mapa dos estados não carregar)
 var BRAZIL = [
     [-51.6,4.3],[-50.4,1.9],[-50.0,0.0],[-48.5,-1.0],[-46.5,-1.0],[-44.3,-2.3],[-42.0,-2.8],[-39.5,-3.0],
     [-37.2,-4.8],[-35.2,-5.3],[-34.8,-7.0],[-35.2,-9.0],[-37.0,-11.0],[-38.5,-13.0],[-39.1,-16.0],[-39.7,-18.3],
@@ -498,10 +265,274 @@ var BRAZIL = [
     [-60.7,5.2],[-60.0,4.5],[-59.8,1.9],[-58.0,1.3],[-56.0,2.0],[-54.5,2.3],[-52.5,2.1]
 ];
 
-var weather = null;      // lista de {code, temp, day} na mesma ordem de CITIES
-var weatherTime = 0;
-var mapTimer = null;
+// =====================================================
+//  ESTADO DO JOGADOR (salvo no aparelho)
+// =====================================================
+var me = { id: "", name: "", uf: "", lat: null, lon: null, shirt: 0 };
+var G = defaultG();
+var gameStarted = false;
 
+function defaultG() {
+    return { hp: 100, defense: 20, food: 15, water: 15, scrap: 10, silver: 0, job: "", goldBat: false, lastRaid: "" };
+}
+
+var DBG = { hour: null, rain: null, wed: null, fake: 0 };
+
+function nowH() {
+    if (DBG.hour !== null) return DBG.hour;
+    var d = new Date();
+    return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+}
+function isWed() { return DBG.wed !== null ? DBG.wed : new Date().getDay() === 3; }
+function fireOn(h) { return h >= 18 || h < 6; }
+function todayKey() { var d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+
+// ---------- salvamento local (a cada 2 segundos) ----------
+var lastSaved = "";
+function readLocal() {
+    try {
+        var raw = localStorage.getItem(SAVE_KEY);
+        if (raw) return JSON.parse(raw);
+        var old = localStorage.getItem(OLD_KEY); // migra save antigo
+        if (old) {
+            var o = JSON.parse(old), g = o.gameState || {};
+            return { me: { name: o.name || "" }, G: { hp: g.hp, defense: g.defense, food: g.food, water: g.water, scrap: g.scrap } };
+        }
+    } catch (e) { /* ignora */ }
+    return null;
+}
+function saveLocal() {
+    try {
+        var s = JSON.stringify({ me: me, G: G });
+        if (s === lastSaved) return;
+        localStorage.setItem(SAVE_KEY, s);
+        lastSaved = s;
+        $('save-state').innerText = "💾 Salvo " + new Date().toLocaleTimeString('pt-BR');
+    } catch (e) { $('save-state').innerText = "⚠️ Falha ao salvar"; }
+}
+
+function toast(msg) {
+    var t = $('toast');
+    t.innerText = msg; t.style.display = 'block';
+    clearTimeout(toast._t);
+    toast._t = setTimeout(function () { t.style.display = 'none'; }, 3200);
+}
+
+// =====================================================
+//  INÍCIO: nome e localização
+// =====================================================
+function buildUfSelect() {
+    var sel = $('uf-select');
+    sel.innerHTML = "";
+    STATES.slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; }).forEach(function (s) {
+        var o = document.createElement('option');
+        o.value = s.s; o.textContent = s.n + " (" + s.s + ")";
+        sel.appendChild(o);
+    });
+    sel.value = "SP";
+}
+
+function newId() {
+    var s = "";
+    while (s.length < 14) s += Math.floor(Math.random() * 16).toString(16);
+    return s;
+}
+function hueFromId(id) { return parseInt(id.slice(0, 6), 16) % 360; }
+
+function confirmUsername() {
+    var raw = $('username-input').value.trim();
+    var low = raw.toLowerCase();
+    if (low.length < 3) { alert("O nome precisa ter pelo menos 3 caracteres!"); return; }
+    for (var i = 0; i < blacklistedWords.length; i++) {
+        if (low.indexOf(blacklistedWords[i]) !== -1) { alert("Esse codinome contém palavras proibidas. Escolha outro!"); return; }
+    }
+    me.name = raw;
+    if (!me.id) me.id = newId();
+    me.shirt = hueFromId(me.id);
+    $('step-name').style.display = 'none';
+    $('step-loc').style.display = 'block';
+}
+
+function openLocation() {
+    $('start-overlay').classList.add('show');
+    $('step-name').style.display = 'none';
+    $('step-loc').style.display = 'block';
+    $('loc-msg').innerText = "";
+    if (me.uf) $('uf-select').value = me.uf;
+}
+
+function kmBetween(lat1, lon1, lat2, lon2) {
+    var dx = (lon1 - lon2) * 111 * Math.cos((lat1 + lat2) * 0.00872665), dy = (lat1 - lat2) * 111;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+function nearestState(lat, lon) {
+    var best = null, bd = 1e9;
+    STATES.forEach(function (s) {
+        var d = kmBetween(lat, lon, s.lat, s.lon);
+        if (d < bd) { bd = d; best = s; }
+    });
+    return { uf: best.s, km: bd };
+}
+
+function useGps() {
+    var msg = $('loc-msg');
+    if (!navigator.geolocation) { msg.innerText = "Este navegador não tem localização. Escolha o estado abaixo."; return; }
+    msg.innerText = "Pedindo permissão...";
+    navigator.geolocation.getCurrentPosition(function (pos) {
+        var lat = Math.round(pos.coords.latitude * 100) / 100, lon = Math.round(pos.coords.longitude * 100) / 100;
+        msg.innerText = "Descobrindo seu estado...";
+        loadGeo(function () {
+            var uf = geo ? ufFromPoint(lon, lat) : null;
+            if (!uf) {
+                var n = nearestState(lat, lon);
+                if (n.km > (geo ? 450 : 1500)) { msg.innerText = "Você parece estar fora do Brasil. Escolha um estado abaixo."; return; }
+                uf = n.uf;
+            }
+            finishLocation(uf, lat, lon);
+        });
+    }, function () {
+        msg.innerText = "Sem permissão de localização. Escolha o estado abaixo.";
+    }, { timeout: 12000, maximumAge: 600000 });
+}
+
+function useManualUf() {
+    var uf = $('uf-select').value, s = stByUf[uf];
+    if (!s) return;
+    finishLocation(uf, Math.round(s.lat * 100) / 100, Math.round(s.lon * 100) / 100);
+}
+
+function finishLocation(uf, lat, lon) {
+    me.uf = uf; me.lat = lat; me.lon = lon;
+    saveLocal();
+    $('start-overlay').classList.remove('show');
+    bootGame();
+}
+
+window.onload = function () {
+    buildUfSelect();
+    layout();
+    var s = readLocal();
+    if (s && s.me && s.me.name) {
+        me = Object.assign(me, s.me);
+        G = Object.assign(defaultG(), s.G || {});
+        if (!me.id) me.id = newId();
+        if (!me.shirt && me.shirt !== 0) me.shirt = hueFromId(me.id);
+    }
+    if (me.name && me.uf) bootGame();
+    else {
+        $('start-overlay').classList.add('show');
+        if (me.name) { $('step-name').style.display = 'none'; $('step-loc').style.display = 'block'; }
+    }
+    var first = function () { initAudio(); if (AUD.ctx && AUD.ctx.state === 'suspended') AUD.ctx.resume(); };
+    document.addEventListener('click', first);
+    document.addEventListener('touchstart', first);
+    $('chat-input').addEventListener('keydown', function (e) { if (e.keyCode === 13) sendChat(); });
+};
+
+// =====================================================
+//  MENU ARRASTÁVEL (baixou muito = base em tela cheia)
+// =====================================================
+var HANDLE_H = 30, sheetH = null, dragging = false, dragStartY = 0, dragStartH = 0, dragMoved = false;
+
+function layout() {
+    var ch = $('app').clientHeight;
+    if (sheetH === null) sheetH = Math.round(ch * 0.5);
+    sheetH = Math.max(HANDLE_H, Math.min(sheetH, Math.round(ch * 0.88)));
+    $('sheet').style.height = sheetH + "px";
+    $('base-view').style.height = (ch - sheetH) + "px";
+    $('handle-text').innerText = (sheetH <= HANDLE_H + 2) ? "▲ Puxe para abrir o menu" : "▼ Arraste para baixo para ver só a base";
+    resizeBase();
+}
+function startDrag(y) { dragging = true; dragMoved = false; dragStartY = y; dragStartH = sheetH; }
+function moveDrag(y) {
+    if (!dragging) return;
+    var dy = dragStartY - y;
+    if (Math.abs(dy) > 4) dragMoved = true;
+    sheetH = dragStartH + dy;
+    layout();
+}
+function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    var ch = $('app').clientHeight;
+    if (!dragMoved) sheetH = (sheetH <= HANDLE_H + 2) ? Math.round(ch * 0.5) : HANDLE_H;
+    else if (sheetH < HANDLE_H + ch * 0.12) sheetH = HANDLE_H;
+    layout();
+}
+(function () {
+    var h = $('sheet-handle');
+    h.addEventListener('mousedown', function (e) { startDrag(e.clientY); e.preventDefault(); });
+    h.addEventListener('touchstart', function (e) { startDrag(e.touches[0].clientY); }, { passive: true });
+    document.addEventListener('mousemove', function (e) { moveDrag(e.clientY); });
+    document.addEventListener('touchmove', function (e) { if (dragging) { moveDrag(e.touches[0].clientY); e.preventDefault(); } }, { passive: false });
+    document.addEventListener('mouseup', endDrag);
+    document.addEventListener('touchend', function (e) { if (dragging) { endDrag(); e.preventDefault(); } }, { passive: false });
+    window.addEventListener('resize', layout);
+})();
+
+// =====================================================
+//  GEOGRAFIA (divisas dos estados - IBGE)
+// =====================================================
+var geo = null; // { UF: [ polígono, ... ] }  polígono = [anel externo, ...]
+
+function fetchTimeout(url, ms) {
+    return new Promise(function (resolve, reject) {
+        var done = false;
+        var t = setTimeout(function () { if (!done) { done = true; reject(new Error("timeout")); } }, ms);
+        fetch(url).then(function (r) { if (!done) { done = true; clearTimeout(t); resolve(r); } })
+            .catch(function (e) { if (!done) { done = true; clearTimeout(t); reject(e); } });
+    });
+}
+
+function parseGeo(j) {
+    var feats = j && j.features;
+    if (!feats) { geo = null; return; }
+    var out = {}, n = 0;
+    feats.forEach(function (f) {
+        var p = f.properties || {};
+        var code = String(p.codarea || p.CD_UF || p.codigo || p.id || "");
+        var st = stByCode[code];
+        if (!st || !f.geometry) return;
+        out[st.s] = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
+        n++;
+    });
+    geo = n >= 20 ? out : null;
+}
+
+function loadGeo(cb) {
+    if (geo) { cb(); return; }
+    try {
+        var c = localStorage.getItem(GEO_KEY);
+        if (c) { parseGeo(JSON.parse(c)); if (geo) { cb(); return; } }
+    } catch (e) { /* ignora */ }
+    fetchTimeout(GEO_URL, 9000).then(function (r) { return r.json(); }).then(function (j) {
+        parseGeo(j);
+        if (geo) { try { localStorage.setItem(GEO_KEY, JSON.stringify(j)); } catch (e) { /* cheio */ } }
+        cb();
+    }).catch(function () { cb(); });
+}
+
+function inRing(x, y, ring) {
+    var ins = false;
+    for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+        if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) ins = !ins;
+    }
+    return ins;
+}
+function ufFromPoint(lon, lat) {
+    if (!geo) return null;
+    for (var k = 0; k < STATES.length; k++) {
+        var polys = geo[STATES[k].s];
+        if (!polys) continue;
+        for (var i = 0; i < polys.length; i++) if (inRing(lon, lat, polys[i][0])) return STATES[k].s;
+    }
+    return null;
+}
+
+// =====================================================
+//  CLIMA
+// =====================================================
 function wxKind(code) {
     if (code === 0) return 'clear';
     if (code <= 2) return 'partly';
@@ -512,14 +543,34 @@ function wxKind(code) {
     if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
     return 'cloud';
 }
-var WX_TEXT = {
-    clear: "céu limpo", partly: "parcialmente nublado", cloud: "nublado",
-    fog: "neblina", rain: "chovendo", storm: "tempestade", snow: "neve"
-};
+var WX_TEXT = { clear: "céu limpo", partly: "parcialmente nublado", cloud: "nublado", fog: "neblina", rain: "chovendo", storm: "tempestade", snow: "neve" };
+
+// clima do local exato do jogador
+var localWx = { kind: "clear", temp: null, raining: false };
+function fetchLocalWeather() {
+    if (me.lat === null || me.lat === undefined) return;
+    var url = "https://api.open-meteo.com/v1/forecast?latitude=" + me.lat + "&longitude=" + me.lon +
+              "&current=temperature_2m,weather_code,is_day,precipitation&timezone=auto";
+    fetchTimeout(url, 10000).then(function (r) { return r.json(); }).then(function (d) {
+        var c = d.current, k = wxKind(c.weather_code);
+        localWx = { kind: k, temp: c.temperature_2m, raining: (k === 'rain' || k === 'storm' || c.precipitation > 0.1) };
+        updateUI();
+    }).catch(function () { /* sem internet: mantém o último */ });
+}
+function isRaining() { return DBG.rain !== null ? DBG.rain : localWx.raining; }
+
+// =====================================================
+//  MAPA DO BRASIL (com divisas dos estados)
+// =====================================================
+var weather = null, weatherTime = 0, mapTimer = null;
 
 function proj(lon, lat, size) {
     var m = size * 0.04, span = 40.5;
     return [m + (lon + 74.5) / span * (size - 2 * m), m + (5.8 - lat) / span * (size - 2 * m)];
+}
+function unproj(x, y, size) {
+    var m = size * 0.04, span = 40.5;
+    return [(x - m) / (size - 2 * m) * span - 74.5, 5.8 - (y - m) / (size - 2 * m) * span];
 }
 
 function wxIcon(c, x, y, r, kind, day) {
@@ -540,314 +591,809 @@ function wxIcon(c, x, y, r, kind, day) {
         }
         dot(px, py, pr, '#ffd54f');
     }
-    if (kind === 'clear') {
-        if (day) sun(x, y, r * 0.5); else { dot(x, y, r * 0.55, '#cfd8dc'); dot(x + r * 0.2, y - r * 0.1, r * 0.12, '#b0bec5'); }
-    } else if (kind === 'partly') {
-        if (day) sun(x + r * 0.3, y - r * 0.3, r * 0.35); else dot(x + r * 0.3, y - r * 0.3, r * 0.4, '#cfd8dc');
-        cloud('#cfd8dc', 0, r * 0.15);
-    } else if (kind === 'cloud') {
-        cloud('#b0bec5');
-    } else if (kind === 'fog') {
-        c.strokeStyle = '#cfd8dc'; c.lineWidth = 2;
-        for (var f = -1; f <= 1; f++) { c.beginPath(); c.moveTo(x - r * 0.8, y + f * r * 0.4); c.lineTo(x + r * 0.8, y + f * r * 0.4); c.stroke(); }
-    } else if (kind === 'rain') {
-        cloud('#78909c', 0, -r * 0.2);
-        c.strokeStyle = '#4fc3f7'; c.lineWidth = 2;
-        for (var d = -1; d <= 1; d++) { c.beginPath(); c.moveTo(x + d * r * 0.5, y + r * 0.45); c.lineTo(x + d * r * 0.5 - r * 0.2, y + r * 0.95); c.stroke(); }
-    } else if (kind === 'storm') {
-        cloud('#455a64', 0, -r * 0.2);
-        c.fillStyle = '#ffeb3b'; c.beginPath();
+    if (kind === 'clear') { if (day) sun(x, y, r * 0.5); else dot(x, y, r * 0.55, '#cfd8dc'); }
+    else if (kind === 'partly') { if (day) sun(x + r * 0.3, y - r * 0.3, r * 0.35); else dot(x + r * 0.3, y - r * 0.3, r * 0.4, '#cfd8dc'); cloud('#cfd8dc', 0, r * 0.15); }
+    else if (kind === 'cloud') cloud('#b0bec5');
+    else if (kind === 'fog') { c.strokeStyle = '#cfd8dc'; c.lineWidth = 2; for (var f = -1; f <= 1; f++) { c.beginPath(); c.moveTo(x - r * 0.8, y + f * r * 0.4); c.lineTo(x + r * 0.8, y + f * r * 0.4); c.stroke(); } }
+    else if (kind === 'rain') { cloud('#78909c', 0, -r * 0.2); c.strokeStyle = '#4fc3f7'; c.lineWidth = 2; for (var d = -1; d <= 1; d++) { c.beginPath(); c.moveTo(x + d * r * 0.5, y + r * 0.45); c.lineTo(x + d * r * 0.5 - r * 0.2, y + r * 0.95); c.stroke(); } }
+    else if (kind === 'storm') {
+        cloud('#455a64', 0, -r * 0.2); c.fillStyle = '#ffeb3b'; c.beginPath();
         c.moveTo(x + r * 0.1, y + r * 0.3); c.lineTo(x - r * 0.25, y + r * 0.7); c.lineTo(x, y + r * 0.7);
         c.lineTo(x - r * 0.15, y + r * 1.1); c.lineTo(x + r * 0.35, y + r * 0.55); c.lineTo(x + r * 0.1, y + r * 0.55); c.closePath(); c.fill();
-    } else if (kind === 'snow') {
-        cloud('#90a4ae', 0, -r * 0.2);
-        for (var q = -1; q <= 1; q++) dot(x + q * r * 0.5, y + r * 0.7, r * 0.12, '#fff');
-    }
+    } else if (kind === 'snow') { cloud('#90a4ae', 0, -r * 0.2); for (var q = -1; q <= 1; q++) dot(x + q * r * 0.5, y + r * 0.7, r * 0.12, '#fff'); }
 }
 
 function drawMap() {
     var cv = $('map-canvas');
-    var size = Math.max(240, Math.min(window.innerWidth - 20, window.innerHeight - 170, 640));
+    var size = Math.max(240, Math.min(window.innerWidth - 20, window.innerHeight - 190, 640));
     cv.width = size; cv.height = size;
     var c = cv.getContext('2d');
     c.fillStyle = '#0d2233'; c.fillRect(0, 0, size, size);
 
-    // Brasil
-    c.beginPath();
-    for (var i = 0; i < BRAZIL.length; i++) {
-        var p = proj(BRAZIL[i][0], BRAZIL[i][1], size);
-        if (i === 0) c.moveTo(p[0], p[1]); else c.lineTo(p[0], p[1]);
+    function path(ring) {
+        c.beginPath();
+        for (var i = 0; i < ring.length; i++) {
+            var p = proj(ring[i][0], ring[i][1], size);
+            if (i === 0) c.moveTo(p[0], p[1]); else c.lineTo(p[0], p[1]);
+        }
+        c.closePath();
     }
-    c.closePath();
-    c.fillStyle = '#2d4a2b'; c.fill();
-    c.strokeStyle = '#6fae5b'; c.lineWidth = 2; c.stroke();
 
-    // cidades + tempo
-    var r = size / 38;
-    c.font = 'bold ' + Math.round(size / 52) + 'px monospace';
+    if (geo) {
+        // estados com divisas
+        STATES.forEach(function (st) {
+            var polys = geo[st.s]; if (!polys) return;
+            var mine = st.s === me.uf;
+            for (var i = 0; i < polys.length; i++) {
+                path(polys[i][0]);
+                c.fillStyle = mine ? '#4c8a3f' : '#2d4a2b'; c.fill();
+                c.strokeStyle = '#b9e8a5'; c.lineWidth = 1.2; c.stroke();
+            }
+        });
+    } else {
+        path(BRAZIL); c.fillStyle = '#2d4a2b'; c.fill(); c.strokeStyle = '#6fae5b'; c.lineWidth = 2; c.stroke();
+    }
+
+    var r = size / 40;
     c.textAlign = 'center';
-    for (var k = 0; k < CITIES.length; k++) {
-        var ct = CITIES[k], pt = proj(ct.lon, ct.lat, size);
-        ct.px = pt[0]; ct.py = pt[1];
+    c.font = 'bold ' + Math.round(size / 54) + 'px monospace';
+    STATES.forEach(function (st, k) {
+        var pt = proj(st.lon, st.lat, size);
+        st.px = pt[0]; st.py = pt[1];
         var w = weather ? weather[k] : null;
         if (w) {
             wxIcon(c, pt[0], pt[1], r, wxKind(w.code), w.day === 1);
             c.fillStyle = '#fff';
-            c.fillText(ct.s + " " + Math.round(w.temp) + "°", pt[0], pt[1] + r * 1.7);
+            c.fillText(st.s + " " + Math.round(w.temp) + "°", pt[0], pt[1] + r * 1.8);
         } else {
             c.fillStyle = '#90a4ae'; c.beginPath(); c.arc(pt[0], pt[1], 3, 0, 6.2832); c.fill();
-            c.fillStyle = '#ccc'; c.fillText(ct.s, pt[0], pt[1] + 14);
+            c.fillStyle = '#ddd'; c.fillText(st.s, pt[0], pt[1] + 14);
         }
-    }
+        var n = counts[st.s] || 0;
+        if (n > 0) { // jogadores online na base do estado
+            c.fillStyle = '#e53935'; c.beginPath(); c.arc(pt[0] + r, pt[1] - r, r * 0.65, 0, 6.2832); c.fill();
+            c.fillStyle = '#fff'; c.fillText(String(n), pt[0] + r, pt[1] - r + r * 0.25);
+        }
+        if (st.s === me.uf) { c.strokeStyle = '#ffeb3b'; c.lineWidth = 2; c.beginPath(); c.arc(pt[0], pt[1], r * 1.3, 0, 6.2832); c.stroke(); }
+    });
 }
 
 function summarize() {
     if (!weather) return "Sem dados de clima ainda.";
     var rainy = [], sunny = 0;
-    for (var i = 0; i < CITIES.length; i++) {
+    for (var i = 0; i < STATES.length; i++) {
         var kd = wxKind(weather[i].code);
-        if (kd === 'rain' || kd === 'storm') rainy.push(CITIES[i].n);
+        if (kd === 'rain' || kd === 'storm') rainy.push(STATES[i].s);
         if (kd === 'clear' && weather[i].day === 1) sunny++;
     }
-    return "☀️ Sol em " + sunny + " capitais. " +
-        (rainy.length ? "🌧️ Chovendo agora em: " + rainy.join(", ") + "." : "Nenhuma capital com chuva agora.");
+    return "☀️ Sol em " + sunny + " capitais. " + (rainy.length ? "🌧️ Chovendo em: " + rainy.join(", ") + "." : "Nenhuma capital com chuva agora.");
 }
 
 function loadWeather(force) {
     if (!force && weather && Date.now() - weatherTime < 600000) { drawMap(); $('map-info').innerText = summarize(); return; }
     $('map-status').innerText = "Carregando clima...";
     var lats = [], lons = [];
-    for (var i = 0; i < CITIES.length; i++) { lats.push(CITIES[i].lat); lons.push(CITIES[i].lon); }
-    var url = "https://api.open-meteo.com/v1/forecast?latitude=" + lats.join(",") +
-              "&longitude=" + lons.join(",") + "&current=temperature_2m,weather_code,is_day&timezone=auto";
-    fetch(url)
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-            var arr = Array.isArray(data) ? data : [data];
-            weather = arr.map(function (d) {
-                return { code: d.current.weather_code, temp: d.current.temperature_2m, day: d.current.is_day };
-            });
-            weatherTime = Date.now();
-            $('map-status').innerText = "Atualizado às " + new Date().toLocaleTimeString('pt-BR');
-            $('map-info').innerText = summarize();
-            drawMap();
-        })
-        .catch(function () {
-            $('map-status').innerText = "Sem internet ou clima indisponível.";
-            drawMap();
-        });
+    STATES.forEach(function (s) { lats.push(s.lat); lons.push(s.lon); });
+    var url = "https://api.open-meteo.com/v1/forecast?latitude=" + lats.join(",") + "&longitude=" + lons.join(",") +
+              "&current=temperature_2m,weather_code,is_day&timezone=auto";
+    fetchTimeout(url, 12000).then(function (r) { return r.json(); }).then(function (data) {
+        var arr = Array.isArray(data) ? data : [data];
+        weather = arr.map(function (d) { return { code: d.current.weather_code, temp: d.current.temperature_2m, day: d.current.is_day }; });
+        weatherTime = Date.now();
+        $('map-status').innerText = "Atualizado às " + new Date().toLocaleTimeString('pt-BR');
+        $('map-info').innerText = summarize();
+        drawMap();
+    }).catch(function () { $('map-status').innerText = "Sem internet ou clima indisponível."; drawMap(); });
 }
 
 function openMap() {
     $('map-overlay').classList.add('show');
     drawMap();
+    loadGeo(function () { drawMap(); });
     loadWeather(false);
     clearInterval(mapTimer);
     mapTimer = setInterval(function () { loadWeather(true); }, 600000);
 }
-function closeMap() {
-    $('map-overlay').classList.remove('show');
-    clearInterval(mapTimer);
-}
+function closeMap() { $('map-overlay').classList.remove('show'); clearInterval(mapTimer); }
 
 $('map-canvas').addEventListener('click', function (e) {
-    if (!weather) return;
-    var cv = $('map-canvas'), rc = cv.getBoundingClientRect();
-    var sx = cv.width / rc.width;
+    var cv = $('map-canvas'), rc = cv.getBoundingClientRect(), sx = cv.width / rc.width;
     var x = (e.clientX - rc.left) * sx, y = (e.clientY - rc.top) * sx;
-    var best = -1, bd = 1e9;
-    for (var i = 0; i < CITIES.length; i++) {
-        var dx = CITIES[i].px - x, dy = CITIES[i].py - y, dd = dx * dx + dy * dy;
-        if (dd < bd) { bd = dd; best = i; }
+    var ll = unproj(x, y, cv.width), uf = ufFromPoint(ll[0], ll[1]), st = uf ? stByUf[uf] : null;
+    if (!st) { // sem divisas: pega a capital mais perto
+        var best = -1, bd = 1e9;
+        STATES.forEach(function (s, i) { var dx = (s.px || 0) - x, dy = (s.py || 0) - y, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = i; } });
+        if (best >= 0 && bd < 40 * 40) st = STATES[best];
     }
-    if (best >= 0 && bd < 40 * 40) {
-        var w = weather[best];
-        $('map-info').innerText = CITIES[best].n + " (" + CITIES[best].s + "): " +
-            WX_TEXT[wxKind(w.code)] + ", " + Math.round(w.temp) + "°C, " + (w.day === 1 ? "dia" : "noite") + ".";
-    }
+    if (!st) return;
+    var n = counts[st.s] || 0, i = STATES.indexOf(st), w = weather ? weather[i] : null;
+    $('map-info').innerText = st.n + " (" + st.s + "): " + n + (n === 1 ? " jogador" : " jogadores") + " na base (nível " + lvlFromN(Math.max(1, n)) + ")" +
+        (w ? ". Em " + st.cap + ": " + WX_TEXT[wxKind(w.code)] + ", " + Math.round(w.temp) + "°C, " + (w.day === 1 ? "dia" : "noite") + "." : ".");
 });
 
 // =====================================================
-//  LÓGICA DO JOGO
+//  ONLINE (servidor): jogadores, notícias, chat, efeitos
 // =====================================================
-function addNews(msg) {
-    var panel = $('news-panel');
-    var line = document.createElement('div');
-    line.textContent = "[" + new Date().toLocaleTimeString('pt-BR') + "] " + msg;
-    panel.insertBefore(line, panel.firstChild);
-    while (panel.childNodes.length > 40) panel.removeChild(panel.lastChild);
+var evt = null, online = false, roomPlayers = [], logs = [], counts = {};
+var chat = { base: [], brasil: [], ch: 'base', open: false, unread: 0 };
+
+function setOnlineLine(t) { $('online-line').innerText = t; }
+
+function post(path, obj) {
+    if (!SERVER_URL || !online) return;
+    try {
+        fetch(SERVER_URL + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) }).catch(function () {});
+    } catch (e) { /* ignora */ }
 }
 
-function clickScrap() { gameState.scrap += 1; updateUI(); }
+function startOnline() {
+    if (evt) { evt.close(); evt = null; }
+    online = false; roomPlayers = [];
+    if (!SERVER_URL) { setOnlineLine("🌐 Offline (abra o jogo pelo servidor para jogar com outras pessoas)"); localWelcome(); return; }
+    if (!window.EventSource) { setOnlineLine("🌐 Este navegador não suporta o modo online"); localWelcome(); return; }
+    setOnlineLine("🌐 Conectando...");
+    var url = SERVER_URL + "/events?id=" + encodeURIComponent(me.id) + "&name=" + encodeURIComponent(me.name) +
+              "&uf=" + me.uf + "&shirt=" + me.shirt;
+    evt = new EventSource(url);
 
-function buyProfession(type) {
-    if (gameState.scrap >= 10) {
-        gameState.scrap -= 10;
-        gameState.professions[type] += 1;
-        addNews("✅ Novo sobrevivente contratado: " + type + ".");
-        updateUI();
-    } else {
-        addNews("❌ Sucata insuficiente para contratar.");
+    evt.onopen = function () { online = true; post("/act", { id: me.id, type: "sync", job: G.job }); };
+    evt.addEventListener("init", function (e) {
+        var d = JSON.parse(e.data);
+        online = true;
+        if (d.you && typeof d.you.shirt === 'number') me.shirt = d.you.shirt;
+        roomPlayers = d.players || [];
+        logs = d.log || [];
+        chat.base = d.chat || []; chat.brasil = d.gchat || [];
+        counts = d.counts || {};
+        renderLogs(); renderChat(); updateUI();
+    });
+    evt.addEventListener("players", function (e) { roomPlayers = JSON.parse(e.data); updateUI(); });
+    evt.addEventListener("counts", function (e) { counts = JSON.parse(e.data); if ($('map-overlay').classList.contains('show')) drawMap(); });
+    evt.addEventListener("log", function (e) { logs.push(JSON.parse(e.data)); if (logs.length > 40) logs.shift(); renderLogs(); });
+    evt.addEventListener("chat", function (e) {
+        var d = JSON.parse(e.data);
+        chat[d.ch].push(d.m); if (chat[d.ch].length > 60) chat[d.ch].shift();
+        if (!chat.open || chat.ch !== d.ch) { if (d.m.id !== me.id) { chat.unread++; updateBadge(); } }
+        if (chat.open && chat.ch === d.ch) renderChat();
+    });
+    evt.addEventListener("fx", function (e) { applyFx(JSON.parse(e.data).type); });
+    evt.onerror = function () { online = false; setOnlineLine("🌐 Servidor fora do ar, tentando reconectar..."); };
+
+    if (!pingStarted) {
+        pingStarted = true;
+        setInterval(function () { try { fetch(SERVER_URL + "/ping").catch(function () {}); } catch (e) { /* ignora */ } }, 240000);
+    }
+}
+var pingStarted = false;
+var welcomed = false;
+function localWelcome() { if (!welcomed) { welcomed = true; logs.push({ t: Date.now(), text: "👋 Seja bem-vindo à base, " + me.name + "!" }); renderLogs(); } }
+
+function getPlayers() {
+    var list = (online && roomPlayers.length) ? roomPlayers.slice(0, 16) : [];
+    var hasMe = false;
+    list.forEach(function (p) { if (p.id === me.id) { p.job = G.job; p.shirt = me.shirt; hasMe = true; } });
+    if (!hasMe) list.unshift({ id: me.id, name: me.name, shirt: me.shirt, job: G.job });
+    var jobs = ["coletador", "barricada", "guarda", "medico"];
+    for (var i = 0; i < DBG.fake; i++) list.push({ id: "fake" + i, name: "Bot" + (i + 1), shirt: (i * 57 + 20) % 360, job: jobs[i % 4] });
+    return list;
+}
+
+// ---------- notícias (logs) ----------
+function renderLogs() {
+    var p = $('news-panel');
+    p.innerHTML = "";
+    for (var i = logs.length - 1; i >= 0; i--) {
+        var d = new Date(logs[i].t), div = document.createElement('div');
+        div.textContent = "[" + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2) + "] " + logs[i].text;
+        p.appendChild(div);
+    }
+}
+function jobText(job, name) {
+    return { guarda: "🛡️ " + name + " está de guarda pra proteger a base dos zumbis!",
+             coletador: "🌾 " + name + " está catando alimentos e sucatas!",
+             barricada: "🔨 " + name + " montou barricadas!",
+             medico: "🩺 " + name + " regenerou o HP de todos!" }[job] || "";
+}
+function localLog(text) { logs.push({ t: Date.now(), text: text }); if (logs.length > 40) logs.shift(); renderLogs(); }
+
+// ---------- chat ----------
+function toggleChat() {
+    chat.open = !chat.open;
+    $('chat-panel').classList.toggle('show', chat.open);
+    if (chat.open) { chat.unread = 0; renderChat(); setTimeout(function () { $('chat-input').focus(); }, 80); }
+    updateBadge();
+}
+function setChatCh(ch) {
+    chat.ch = ch;
+    $('tab-base').className = ch === 'base' ? 'sel' : '';
+    $('tab-brasil').className = ch === 'brasil' ? 'sel' : '';
+    renderChat();
+}
+function updateBadge() {
+    var b = $('chat-badge');
+    b.style.display = chat.unread > 0 ? 'block' : 'none';
+    b.innerText = chat.unread > 9 ? "9+" : chat.unread;
+}
+function renderChat() {
+    var box = $('chat-msgs');
+    box.innerHTML = "";
+    if (!online) { var s = document.createElement('div'); s.className = 'cm sys'; s.textContent = "O chat só funciona com o servidor online."; box.appendChild(s); return; }
+    chat[chat.ch].forEach(function (m) {
+        var d = document.createElement('div'); d.className = 'cm';
+        var t = new Date(m.t), b = document.createElement('b');
+        b.textContent = m.n + (chat.ch === 'brasil' ? " (" + m.uf + ")" : "");
+        b.style.color = m.id === me.id ? '#ffe082' : 'hsl(' + m.h + ',70%,70%)';
+        d.appendChild(document.createTextNode("[" + ("0" + t.getHours()).slice(-2) + ":" + ("0" + t.getMinutes()).slice(-2) + "] "));
+        d.appendChild(b);
+        d.appendChild(document.createTextNode(": " + m.text));
+        box.appendChild(d);
+    });
+    box.scrollTop = box.scrollHeight;
+}
+function sendChat() {
+    var inp = $('chat-input'), text = inp.value.trim();
+    if (!text) return;
+    if (!online) { toast("O chat precisa do servidor online."); return; }
+    post("/chat", { id: me.id, ch: chat.ch, text: text });
+    inp.value = "";
+}
+
+// =====================================================
+//  SOM (sintetizado, sem arquivos): grilos + fogueira às 18h
+// =====================================================
+var AUD = { ctx: null, on: true, master: null, noise: null, fireGain: null, rainGain: null, cricketGain: null, crackleGain: null };
+
+function initAudio() {
+    if (AUD.ctx) return;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    try {
+        var c = AUD.ctx = new AC();
+        AUD.master = c.createGain(); AUD.master.gain.value = AUD.on ? 0.6 : 0; AUD.master.connect(c.destination);
+        var len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+        for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+        AUD.noise = buf;
+        function loop(filterType, freq, gainRef) {
+            var s = c.createBufferSource(); s.buffer = buf; s.loop = true;
+            var f = c.createBiquadFilter(); f.type = filterType; f.frequency.value = freq;
+            var g = c.createGain(); g.gain.value = 0;
+            s.connect(f); f.connect(g); g.connect(AUD.master); s.start();
+            return g;
+        }
+        AUD.fireGain = loop('lowpass', 500);
+        AUD.rainGain = loop('highpass', 1500);
+        AUD.cricketGain = c.createGain(); AUD.cricketGain.gain.value = 0.05; AUD.cricketGain.connect(AUD.master);
+        AUD.crackleGain = c.createGain(); AUD.crackleGain.gain.value = 0.5; AUD.crackleGain.connect(AUD.master);
+    } catch (e) { AUD.ctx = null; }
+}
+function chirp() {
+    var c = AUD.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain();
+    o.type = 'sine'; o.frequency.value = 4000 + Math.random() * 600; g.gain.value = 0;
+    o.connect(g); g.connect(AUD.cricketGain);
+    var n = 2 + Math.floor(Math.random() * 3);
+    for (var i = 0; i < n; i++) {
+        var s = t + i * 0.07;
+        g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(1, s + 0.015); g.gain.linearRampToValueAtTime(0, s + 0.045);
+    }
+    o.start(t); o.stop(t + n * 0.07 + 0.05);
+}
+function crackle() {
+    var c = AUD.ctx, t = c.currentTime, s = c.createBufferSource();
+    s.buffer = AUD.noise;
+    var bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1200 + Math.random() * 2500; bp.Q.value = 1.5;
+    var g = c.createGain();
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5 + Math.random() * 0.5, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.03 + Math.random() * 0.05);
+    s.connect(bp); bp.connect(g); g.connect(AUD.crackleGain);
+    s.start(t, Math.random() * 1.5, 0.12);
+}
+function audioTick() {
+    if (!AUD.ctx || !AUD.on || document.hidden) return;
+    var lit = fireOn(nowH()), rain = isRaining(), t = AUD.ctx.currentTime;
+    AUD.fireGain.gain.setTargetAtTime(lit ? 0.05 : 0, t, 0.5);
+    AUD.rainGain.gain.setTargetAtTime(rain ? 0.06 : 0, t, 0.5);
+    if (lit) {
+        if (Math.random() < 0.35) chirp();
+        if (Math.random() < 0.35) chirp();
+        if (Math.random() < (rain ? 0.2 : 0.5)) crackle();
+    }
+}
+setInterval(audioTick, 300);
+function toggleSound() {
+    AUD.on = !AUD.on;
+    $('sound-btn').innerText = AUD.on ? "🔊" : "🔇";
+    initAudio();
+    if (AUD.ctx) { if (AUD.ctx.state === 'suspended') AUD.ctx.resume(); AUD.master.gain.value = AUD.on ? 0.6 : 0; }
+}
+
+// =====================================================
+//  EMPREGOS, AÇÕES, NOITE, TROCADOR
+// =====================================================
+var JOBS = {
+    coletador: { ico: "🌾", nome: "Coletor", desc: "Cata alimentos e sucatas: traz comida e água para todos da base e sucata para você.", period: 60 },
+    barricada: { ico: "🔨", nome: "Barricadeiro", desc: "Monta barricadas: reforça a defesa de todos da base.", period: 60 },
+    guarda: { ico: "⚔️", nome: "Guarda", desc: "Protege a base dos zumbis às 21:00. Cada guarda reduz o dano da horda.", period: 300 },
+    medico: { ico: "🩺", nome: "Médico", desc: "Regenera o HP de todos da base.", period: 120 }
+};
+var lastJobChange = 0, jobClock = 0, sec = 0;
+
+function buildJobs() {
+    var box = $('jobs'); box.innerHTML = "";
+    Object.keys(JOBS).forEach(function (k) {
+        var b = document.createElement('button');
+        b.className = 'job' + (G.job === k ? ' sel' : '');
+        b.innerHTML = JOBS[k].ico + " " + JOBS[k].nome;
+        b.onclick = function () { chooseJob(k); };
+        box.appendChild(b);
+    });
+    $('job-info').innerText = G.job ? JOBS[G.job].desc : "Você ainda não tem emprego. Escolha um!";
+}
+
+function chooseJob(j) {
+    if (G.job === j) return;
+    if (Date.now() - lastJobChange < 8000) { toast("Calma! Espere alguns segundos para trocar de emprego."); return; }
+    lastJobChange = Date.now();
+    G.job = j; jobClock = 0;
+    if (online) post("/act", { id: me.id, type: "job", job: j });
+    else localLog(jobText(j, me.name));
+    buildJobs(); updateUI(); saveLocal();
+}
+
+function applyFx(type) {
+    if (type === "heal") G.hp = Math.min(100, G.hp + 10);
+    else if (type === "barricade") G.defense += 6;
+    else if (type === "supply") { G.food += 4; G.water += 4; }
+    updateUI();
+}
+
+function doAction() {
+    if (!G.job) return;
+    if (G.job === "coletador") G.scrap += 4;
+    if (online) post("/act", { id: me.id, type: "action" });
+    else {
+        localLog(jobText(G.job, me.name));
+        var fx = { coletador: "supply", barricada: "barricade", medico: "heal" }[G.job];
+        if (fx) applyFx(fx);
     }
 }
 
-function changeBasePlayers(d) {
-    if (onlineActive) return; // com o online ligado, quem manda é a contagem real
-    gameState.basePlayers = Math.max(1, Math.min(10, gameState.basePlayers + d));
-    updateUI();
+function clickScrap() { G.scrap += 1; updateUI(); }
+
+function countGuards() { return getPlayers().filter(function (p) { return p.job === "guarda"; }).length; }
+
+function nightPhase() {
+    var need = 4;
+    if (G.food >= need && G.water >= need) { G.food -= need; G.water -= need; }
+    else { G.hp = Math.max(0, G.hp - 25); toast("🚨 Faltou comida ou água no jantar das 21h! (-25% HP)"); }
+    var dano = Math.floor(Math.random() * 20) + 25;
+    dano = Math.max(5, dano - countGuards() * 15);
+    var ok;
+    if (G.defense >= dano) { G.defense -= dano; ok = true; toast("🛡️ As barricadas seguraram a horda!"); }
+    else { G.hp = Math.max(0, G.hp - (dano - G.defense)); G.defense = 0; ok = false; toast("🚨 Os zumbis invadiram a base!"); }
+    if (online) post("/act", { id: me.id, type: ok ? "raid_ok" : "raid_fail" });
+    else localLog(ok ? "🛡️ As barricadas de " + me.name + " seguraram a horda!" : "🚨 A horda invadiu a base de " + me.name + "!");
+    if (G.hp <= 0) { G.hp = 30; G.defense = 10; toast("💀 A base caiu... vocês se reorganizaram com pouca vida."); }
 }
 
-function processIdleResources() {
-    if (gameState.hp <= 0) return;
-    var p = gameState.professions;
-    gameState.food += p.coletador;
-    gameState.water += p.coletador;
-    gameState.defense += p.barricada;
-    gameState.scrap += 1;
-    updateUI();
+// ---------- trocador (quartas) e moeda de prata ----------
+var ITEMS = [
+    { id: "racao", ico: "🍖", nome: "Ração", preco: 4, desc: "+20 comida e +20 água" },
+    { id: "kit", ico: "🩹", nome: "Kit médico", preco: 6, desc: "+40 de vida" },
+    { id: "reforco", ico: "🧱", nome: "Reforço", preco: 8, desc: "+30 de defesa" },
+    { id: "bastao", ico: "🏏", nome: "Bastão dourado", preco: 12, desc: "Os guardas usam um bastão dourado" }
+];
+function tradeScrap() {
+    if (!isWed()) { toast("O trocador só aparece às quartas-feiras."); return; }
+    if (G.scrap < 10) { toast("Você precisa de 10 sucatas."); return; }
+    G.scrap -= 10; G.silver += 5;
+    toast("Trocou 10 sucatas por 5 moedas de prata 🥈"); updateUI();
+}
+function buyItem(id) {
+    if (!isWed()) { toast("O trocador só aparece às quartas-feiras."); return; }
+    var it = ITEMS.filter(function (i) { return i.id === id; })[0];
+    if (!it) return;
+    if (id === "bastao" && G.goldBat) { toast("Você já tem o bastão dourado."); return; }
+    if (G.silver < it.preco) { toast("Moedas de prata insuficientes."); return; }
+    G.silver -= it.preco;
+    if (id === "racao") { G.food += 20; G.water += 20; }
+    else if (id === "kit") G.hp = Math.min(100, G.hp + 40);
+    else if (id === "reforco") G.defense += 30;
+    else if (id === "bastao") G.goldBat = true;
+    toast("Comprou: " + it.nome); updateUI();
+}
+var traderKey = "";
+function renderTrader() {
+    var wed = isWed(), key = wed + "|" + G.silver + "|" + G.goldBat;
+    if (key === traderKey) return;
+    traderKey = key;
+    var box = $('trader-box');
+    if (!wed) { box.innerHTML = "<strong>🧙 Trocador</strong><div style='margin-top:6px;color:#999;'>O trocador de prata só aparece às quartas-feiras. Junte sucatas até lá!</div>"; return; }
+    var h = "<strong>🧙 Trocador chegou à base!</strong>" +
+            "<div class='item-row'><div>10 sucatas → 5 moedas de prata</div><button class='btn-sm' onclick='tradeScrap()'>Trocar</button></div>";
+    ITEMS.forEach(function (it) {
+        h += "<div class='item-row'><div>" + it.ico + " " + it.nome + " <small>" + it.desc + "</small></div>" +
+             "<button class='btn-sm' onclick=\"buyItem('" + it.id + "')\">" + it.preco + " 🥈</button></div>";
+    });
+    box.innerHTML = h;
 }
 
-function updateClock() {
+// ---------- modo teste ----------
+function dbgRain() { DBG.rain = DBG.rain === null ? true : (DBG.rain === true ? false : null); $('d-rain').innerText = DBG.rain === null ? "auto" : (DBG.rain ? "sim" : "não"); }
+function dbgWed() { DBG.wed = DBG.wed === null ? true : (DBG.wed === true ? false : null); $('d-wed').innerText = DBG.wed === null ? "auto" : (DBG.wed ? "sim" : "não"); traderKey = ""; updateUI(); }
+function dbgFake(d) { DBG.fake = Math.max(0, Math.min(12, DBG.fake + d)); updateUI(); }
+function dbgHour(h) { DBG.hour = h; G.lastRaid = ""; updateUI(); }
+
+// =====================================================
+//  NÍVEL DA BASE
+// =====================================================
+var LEVEL_NAMES = ["", "Barraca", "Cabana de madeira", "Casa abandonada", "Loja abandonada"];
+var lastLevel = 1;
+function lvlFromN(n) { return n >= 10 ? 4 : (n >= 5 ? 3 : (n >= 3 ? 2 : 1)); }
+
+// =====================================================
+//  CENA 2D DA BASE
+// =====================================================
+var bc = $('base-canvas'), ctx = bc.getContext('2d');
+
+function hashStr(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function rng(seed) { var s = seed >>> 0; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+
+function rect(x, y, w, h, col) { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); }
+function circ(x, y, r, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); }
+function tri(ax, ay, bx, by, cx, cy) { ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(cx, cy); ctx.closePath(); ctx.fill(); }
+
+var DECOR = [], TREEDEF = [];
+function genDecor() {
+    var r = rng(hashStr(me.uf || "BR")), i;
+    DECOR = []; TREEDEF = [];
+    for (i = 0; i < 9; i++) TREEDEF.push({ x: (i + 0.3 + r() * 0.4) / 9, h: 22 + r() * 14 });
+    for (i = 0; i < 14; i++) DECOR.push({ t: 'patch', x: r(), y: r(), s: 3 + r() * 5 });
+    for (i = 0; i < 34; i++) DECOR.push({ t: 'grass', x: r(), y: r(), s: 0.8 + r() * 0.9 });
+    for (i = 0; i < 12; i++) DECOR.push({ t: 'mush', x: r(), y: r(), c: r() < 0.55 ? 0 : 1 });
+    for (i = 0; i < 4; i++) DECOR.push({ t: 'log', x: 0.08 + r() * 0.84, y: r() });
+    for (i = 0; i < 6; i++) DECOR.push({ t: 'rock', x: r(), y: r(), s: 1 + r() });
+    DECOR.sort(function (a, b) { return a.y - b.y; });
+}
+
+function resizeBase() {
+    var px = 2, w = $('base-view').clientWidth, h = $('base-view').clientHeight;
+    bc.width = Math.max(80, Math.floor(w / px));
+    bc.height = Math.max(40, Math.floor(h / px));
+    if (!DECOR.length) genDecor();
+    drawBase(Date.now());
+}
+
+function pine(x, g, h, u, night) {
+    var dark = night ? '#0d2a14' : '#1f4d2a', mid = night ? '#123519' : '#2a6335';
+    rect(x - 0.7 * u, g - h * 0.16, 1.4 * u, h * 0.16, '#4e342e');
+    for (var i = 0; i < 3; i++) {
+        var w = h * (0.34 - i * 0.07), y0 = g - h * 0.1 - i * h * 0.25;
+        ctx.fillStyle = i % 2 ? mid : dark;
+        tri(x - w, y0, x + w, y0, x, y0 - h * 0.36);
+        ctx.fillStyle = dark; // pontas que saem para fora dos galhos
+        tri(x - w - 1.8 * u, y0 + 0.9 * u, x - w + 0.8 * u, y0 - 0.7 * u, x - w + 0.8 * u, y0 + 0.7 * u);
+        tri(x + w + 1.8 * u, y0 + 0.9 * u, x + w - 0.8 * u, y0 - 0.7 * u, x + w - 0.8 * u, y0 + 0.7 * u);
+        tri(x - w * 0.55, y0 - h * 0.12, x - w * 0.55 - 1.5 * u, y0 - h * 0.08, x - w * 0.55 + 0.5 * u, y0 - h * 0.05);
+        tri(x + w * 0.55, y0 - h * 0.12, x + w * 0.55 + 1.5 * u, y0 - h * 0.08, x + w * 0.55 - 0.5 * u, y0 - h * 0.05);
+    }
+}
+
+function drawDecor(W, H, g, u, night) {
+    var gh = Math.min(H - g - 4 * u, 36 * u);
+    for (var i = 0; i < DECOR.length; i++) {
+        var d = DECOR[i], x = d.x * W, y = g + 2 * u + d.y * gh;
+        if (d.t === 'patch') { ctx.fillStyle = night ? '#18220f' : '#2e3d1c'; ctx.beginPath(); ctx.ellipse(x, y, d.s * u, d.s * u * 0.35, 0, 0, 6.2832); ctx.fill(); }
+        else if (d.t === 'grass') {
+            ctx.fillStyle = night ? '#2c4a1c' : '#5a8a35';
+            for (var k = 0; k < 5; k++) { var bx = x + k * 0.55 * u; tri(bx - 0.35 * u, y, bx + 0.35 * u, y, bx + (k - 2) * 0.35 * u, y - (1.6 + (k % 3) * 0.9) * u * d.s); }
+        } else if (d.t === 'mush') {
+            rect(x - 0.3 * u, y - 1 * u, 0.6 * u, 1 * u, night ? '#9e9a94' : '#efebe9');
+            ctx.fillStyle = d.c ? '#8d6e63' : '#d32f2f';
+            ctx.beginPath(); ctx.arc(x, y - 1 * u, 1.3 * u, Math.PI, 0); ctx.fill();
+            if (!d.c) { rect(x - 0.7 * u, y - 1.9 * u, 0.4 * u, 0.4 * u, '#fff'); rect(x + 0.3 * u, y - 1.6 * u, 0.4 * u, 0.4 * u, '#fff'); }
+        } else if (d.t === 'log') {
+            rect(x - 4 * u, y - 1.6 * u, 8 * u, 2.2 * u, night ? '#3a281f' : '#5d4037');
+            rect(x - 4 * u, y - 1.6 * u, 8 * u, 0.5 * u, night ? '#4a3329' : '#7a5648');
+            circ(x + 4 * u, y - 0.5 * u, 1.1 * u, night ? '#8d7a66' : '#bca27f');
+            rect(x - 1.5 * u, y - 2.6 * u, 0.6 * u, 1.1 * u, '#4e342e'); rect(x + 1 * u, y - 2.3 * u, 0.6 * u, 0.8 * u, '#4e342e');
+        } else if (d.t === 'rock') { ctx.fillStyle = night ? '#3b3f43' : '#78818a'; ctx.beginPath(); ctx.ellipse(x, y - 0.5 * u, d.s * 1.6 * u, d.s * 0.9 * u, 0, 0, 6.2832); ctx.fill(); }
+    }
+}
+
+// ---------- fogueira ----------
+function fire(x, y, u, t, lit, rain) {
+    rect(x - 3 * u, y - 1 * u, 6 * u, 1.2 * u, '#4e342e');
+    rect(x - 2 * u, y - 1.8 * u, 4 * u, 0.9 * u, '#3e2723');
+    var fi = 1;
+    if (lit && rain) fi = (Math.sin(t / 130) + Math.sin(t / 410) * 1.3 > 0.2) ? 0.9 : 0.12; // falha na chuva
+    if (lit && fi > 0.3) {
+        var f = Math.sin(t / 90) * 0.6 + Math.sin(t / 37) * 0.4;
+        circ(x, y - 2 * u, (9 + f) * u * fi, 'rgba(255,150,40,0.16)');
+        ctx.fillStyle = '#e65100'; tri(x - 2.2 * u, y - u, x + 2.2 * u, y - u, x, y - (6 + f) * u * fi);
+        ctx.fillStyle = '#ffb300'; tri(x - 1.4 * u, y - u, x + 1.4 * u, y - u, x, y - (4.2 + f * 0.7) * u * fi);
+        ctx.fillStyle = '#fff59d'; tri(x - 0.7 * u, y - u, x + 0.7 * u, y - u, x, y - (2.4 + f * 0.4) * u * fi);
+        return;
+    }
+    if (lit) { // brasa fraca da fogueira "falhando"
+        circ(x - 0.8 * u, y - 1.6 * u, 0.5 * u, '#ff7043'); circ(x + 0.9 * u, y - 1.5 * u, 0.4 * u, '#ff7043');
+    }
+    // apagada (de dia) ou falhando: fumaça subindo
+    for (var k = 0; k < 5; k++) {
+        var ph = ((t / 60) + k * 9) % 45, a = 0.5 * (1 - ph / 45);
+        circ(x + Math.sin(ph / 6 + k) * 1.4 * u, y - 2.5 * u - ph * 0.42 * u, (1.1 + ph / 45 * 2.4) * u, 'rgba(170,170,170,' + a.toFixed(2) + ')');
+    }
+}
+
+// ---------- pessoas ----------
+function person(x, y, u0, a, p, t, night) {
+    var u = u0 * 1.6; // bonecos maiores que o resto da cena, para dar para ver
+    var col = 'hsl(' + p.shirt + ',72%,50%)', st = a.st, legs = '#37474f', skin = '#ffcc80';
+    var bob = (st === 'walk' || st === 'run') ? Math.sin(t / (st === 'run' ? 70 : 130)) : 0;
+    if (st === 'sit') {
+        rect(x - 0.7 * u, y - 4 * u, 1.4 * u, 1.4 * u, skin);
+        rect(x - 0.8 * u, y - 4.3 * u, 1.6 * u, 0.6 * u, '#3e2723');
+        rect(x - 0.9 * u, y - 2.7 * u, 1.8 * u, 2 * u, col);
+        rect(x - 0.9 * u, y - 0.9 * u, 2.8 * u, 0.9 * u, legs);
+    } else {
+        rect(x - 0.7 * u, y - 4.4 * u, 1.4 * u, 1.4 * u, skin);
+        rect(x - 0.8 * u, y - 4.7 * u, 1.6 * u, 0.6 * u, '#3e2723');
+        rect(x - 0.9 * u, y - 3 * u, 1.8 * u, 2.2 * u, col);
+        rect(x - 0.9 * u, y - 0.8 * u - Math.max(0, bob) * 0.5 * u, 0.7 * u, 0.8 * u + Math.max(0, bob) * 0.5 * u, legs);
+        rect(x + 0.2 * u, y - 0.8 * u - Math.max(0, -bob) * 0.5 * u, 0.7 * u, 0.8 * u + Math.max(0, -bob) * 0.5 * u, legs);
+        if (st === 'stand' && p.job === 'guarda') { // bastão de beisebol na mão
+            ctx.strokeStyle = G.goldBat && p.id === me.id ? '#ffd54f' : '#c9a063';
+            ctx.lineWidth = Math.max(1.5, 0.8 * u);
+            ctx.beginPath(); ctx.moveTo(x + 1.1 * u, y - 2.2 * u); ctx.lineTo(x + 2.6 * u, y - 6.4 * u); ctx.stroke();
+        }
+    }
+    // nome em cima do boneco (alterna a altura para os nomes não se cobrirem)
+    var fs = Math.max(6, Math.round(2.6 * u0));
+    var ny = y - 5.8 * u - (a.slot % 2) * fs * 1.05;
+    ctx.font = 'bold ' + fs + 'px monospace'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#000'; ctx.fillText(p.name, x + 1, ny + 1);
+    ctx.fillStyle = p.id === me.id ? '#ffe082' : 'rgba(255,255,255,0.92)'; ctx.fillText(p.name, x, ny);
+}
+
+function zombie(x, y, u0, t, i) {
+    var u = u0 * 1.6;
+    var sw = Math.sin(t / 400 + i) * 0.3 * u;
+    rect(x - 0.7 * u + sw, y - 4.4 * u, 1.4 * u, 1.4 * u, '#7cb342');
+    rect(x - 0.4 * u + sw, y - 4 * u, 0.3 * u, 0.3 * u, '#c62828'); rect(x + 0.2 * u + sw, y - 4 * u, 0.3 * u, 0.3 * u, '#c62828');
+    rect(x - 0.9 * u, y - 3 * u, 1.8 * u, 2.2 * u, '#546e7a');
+    rect(x - 0.9 * u, y - 2.8 * u, 0.5 * u, 0.8 * u, '#37474f'); // rasgo
+    rect(x + 0.9 * u, y - 3 * u, 1.8 * u, 0.6 * u, '#7cb342'); // braço esticado
+    rect(x - 0.9 * u, y - 0.8 * u, 0.7 * u, 0.8 * u, '#455a64'); rect(x + 0.2 * u, y - 0.8 * u, 0.7 * u, 0.8 * u, '#455a64');
+}
+
+// ---------- avatares (posições em unidades u relativas à base) ----------
+var AV = {};
+var SEATS = [{ x: 9.5, y: 5.5 }, { x: 12.5, y: 5.5 }, { x: 23.5, y: 5.5 }, { x: 26.5, y: 5.5 }, { x: 15.5, y: 11.5 }, { x: 18, y: 11.5 }, { x: 20.5, y: 11.5 }];
+var GUARD_POSTS = [{ x: -4, y: 6 }, { x: 36, y: 7 }, { x: -52, y: 7 }, { x: 46, y: 11 }, { x: -12, y: 10 }, { x: 40, y: 3 }];
+function doorUx(lvl) { return lvl === 1 ? -20 : (lvl === 2 ? -24 : (lvl === 3 ? -28 : -2)); }
+
+function stepAvatars(lvl, hr, rain) {
+    var list = getPlayers().slice().sort(function (a, b) { return a.id < b.id ? -1 : 1; });
+    var ids = {};
+    list.forEach(function (p) { ids[p.id] = 1; });
+    Object.keys(AV).forEach(function (k) { if (!ids[k]) delete AV[k]; });
+    var night = fireOn(hr), guardTime = hr >= 19 || hr < 6, door = doorUx(lvl), seat = 0, post = 0, slotN = 0;
+
+    list.forEach(function (p) {
+        var a = AV[p.id];
+        if (!a) { var rr = rng(hashStr(p.id)); a = AV[p.id] = { ux: -40 + rr() * 90, uy: 6 + rr() * 8, tx: 0, ty: 0, wait: 0, st: 'walk', inside: false, rr: rr }; }
+        var tx, ty, speed = 0.45, mode = 'walk';
+        if (rain) { tx = door; ty = 1.5; speed = 1.0; mode = 'run'; }
+        else {
+            if (a.inside) { a.inside = false; a.ux = door; a.uy = 1.5; }
+            if (guardTime && p.job === 'guarda') { var gp = GUARD_POSTS[post++ % GUARD_POSTS.length]; tx = gp.x; ty = gp.y; mode = 'guard'; }
+            else if (night) {
+                if (seat < SEATS.length) { tx = SEATS[seat].x; ty = SEATS[seat].y; seat++; }
+                else { tx = 30 + ((seat - SEATS.length) % 3) * 4; ty = 9 + Math.floor((seat - SEATS.length) / 3) * 5; seat++; }
+                mode = 'sit';
+            } else {
+                mode = 'walk';
+                if (a.wait > 0) { a.wait--; tx = a.ux; ty = a.uy; }
+                else if (!a.tx && !a.ty || Math.abs(a.ux - a.tx) < speed && Math.abs(a.uy - a.ty) < speed) { a.tx = -58 + a.rr() * 116; a.ty = 5 + a.rr() * 10; a.wait = 8 + Math.floor(a.rr() * 25); tx = a.ux; ty = a.uy; }
+                else { tx = a.tx; ty = a.ty; }
+            }
+        }
+        var dx = tx - a.ux, dy = ty - a.uy, dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= speed) { a.ux = tx; a.uy = ty; a.st = rain ? 'run' : (mode === 'sit' ? 'sit' : (mode === 'guard' ? 'stand' : 'idle')); if (rain) a.inside = true; }
+        else { a.ux += dx / dist * speed; a.uy += dy / dist * speed; a.st = rain ? 'run' : 'walk'; }
+        a.p = p; a.slot = slotN++;
+    });
+}
+
+var ZOMBIES = [], zKey = "";
+function getZombies() {
+    var key = (me.uf || "") + todayKey();
+    if (key !== zKey) {
+        zKey = key; ZOMBIES = [];
+        var r = rng(hashStr(key));
+        while (ZOMBIES.length < 4) {
+            var ux = -60 + r() * 120, uy = 4 + r() * 12;
+            if (Math.abs(ux - 18) < 12 || (ux > -56 && ux < 10 && uy < 4)) continue;
+            ZOMBIES.push({ ux: ux, uy: uy });
+        }
+    }
+    return ZOMBIES;
+}
+
+// ---------- desenho principal ----------
+function drawBase(t) {
+    var W = bc.width, H = bc.height, u = Math.min(H / 100, W / 116);
+    var cx = Math.round(W / 2 + 3 * u), g = Math.round(Math.min(H * 0.72, H / 2 + 22 * u));
+    var hr = nowH(), rain = isRaining(), lit = fireOn(hr);
+    var night = hr < 5.5 || hr >= 18.5, dusk = (hr >= 17 && hr < 18.5) || (hr >= 5.5 && hr < 7);
+    var players = getPlayers(), lvl = lvlFromN(players.length);
+
+    // céu
+    var c1 = night ? '#0b1026' : (dusk ? '#d9774a' : '#5ab0e0'), c2 = night ? '#1b2a4a' : (dusk ? '#f6c27a' : '#bfe6f5');
+    var gr = ctx.createLinearGradient(0, 0, 0, g);
+    gr.addColorStop(0, c1); gr.addColorStop(1, c2);
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, g);
+    if (night) {
+        ctx.fillStyle = '#fff';
+        [[.1,.1],[.25,.2],[.4,.08],[.55,.18],[.7,.07],[.85,.2],[.93,.1],[.33,.3],[.62,.3],[.15,.32]].forEach(function (s) { ctx.fillRect(s[0] * W, s[1] * g, 1, 1); });
+        circ(W * 0.82, g * 0.18, 3 * u, '#eceff1');
+    } else circ(W * 0.82, g * 0.18, 3.5 * u, dusk ? '#ff8a50' : '#ffe082');
+
+    // árvores ao fundo (pinheiros com pontas)
+    for (var i = 0; i < TREEDEF.length; i++) pine(TREEDEF[i].x * W, g, TREEDEF[i].h * u, u, night);
+
+    // chão
+    rect(0, g, W, H - g, night ? '#1c2616' : '#3b4a2a');
+    rect(0, g, W, 1.2 * u, night ? '#111a0d' : '#2c381f');
+    drawDecor(W, H, g, u, night);
+
+    var winCol = fireOn(hr) ? '#ffcc80' : '#5d4037';
+    // construção conforme o nível
+    if (lvl === 1) {
+        ctx.fillStyle = '#6d7f3b'; tri(cx - 32 * u, g, cx - 8 * u, g, cx - 20 * u, g - 20 * u);
+        ctx.fillStyle = '#4e5c28'; tri(cx - 20 * u, g - 20 * u, cx - 8 * u, g, cx - 14 * u, g);
+        ctx.fillStyle = '#2b2b1d'; tri(cx - 23 * u, g, cx - 17 * u, g, cx - 20 * u, g - 9 * u);
+    } else if (lvl === 2) {
+        rect(cx - 40 * u, g - 17 * u, 32 * u, 17 * u, '#8d6e63');
+        ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 1;
+        for (var k = 1; k < 6; k++) { ctx.beginPath(); ctx.moveTo(cx - 40 * u, g - k * 3 * u); ctx.lineTo(cx - 8 * u, g - k * 3 * u); ctx.stroke(); }
+        ctx.fillStyle = '#4e342e'; tri(cx - 44 * u, g - 17 * u, cx - 4 * u, g - 17 * u, cx - 24 * u, g - 31 * u);
+        rect(cx - 27 * u, g - 10 * u, 6 * u, 10 * u, '#3e2723');
+        rect(cx - 37 * u, g - 13 * u, 5 * u, 5 * u, winCol); rect(cx - 15 * u, g - 13 * u, 5 * u, 5 * u, winCol);
+    } else if (lvl === 3) {
+        rect(cx - 46 * u, g - 22 * u, 36 * u, 22 * u, '#8a8576');
+        rect(cx - 46 * u, g - 22 * u, 36 * u, 2 * u, '#756f61');
+        ctx.fillStyle = '#5d4a3a'; ctx.beginPath();
+        ctx.moveTo(cx - 49 * u, g - 22 * u); ctx.lineTo(cx - 32 * u, g - 37 * u); ctx.lineTo(cx - 24 * u, g - 31 * u);
+        ctx.lineTo(cx - 20 * u, g - 35 * u); ctx.lineTo(cx - 7 * u, g - 22 * u); ctx.closePath(); ctx.fill();
+        rect(cx - 41 * u, g - 16 * u, 6 * u, 7 * u, '#1b1b1b'); rect(cx - 21 * u, g - 16 * u, 6 * u, 7 * u, '#1b1b1b');
+        rect(cx - 31 * u, g - 11 * u, 6 * u, 11 * u, '#2a2118');
+        [[-46, -20, 6], [-16, -14, 6], [-36, -33, 3], [-30, -8, 3]].forEach(function (v) {
+            for (var n = 0; n < v[2]; n++) circ(cx + v[0] * u + (n % 3) * 1.6 * u, g + v[1] * u + Math.floor(n / 3) * 1.4 * u, 1.5 * u, n % 2 ? '#2e6b2a' : '#3f8a35');
+        });
+        for (var m = 0; m < 12; m++) rect(cx - 50 * u + m * 4 * u, g - 1.5 * u, 1.2 * u, 2 * u, '#3f8a35');
+    } else {
+        var top = g - 26 * u;
+        rect(cx - 54 * u, top, 62 * u, 26 * u, '#75757d');
+        rect(cx - 56 * u, top - 2 * u, 66 * u, 3 * u, '#5a5a62');
+        rect(cx - 50 * u, top + 3 * u, 28 * u, 6 * u, '#8b3a3a');
+        ctx.fillStyle = '#d7ccc8'; ctx.font = 'bold ' + Math.max(6, Math.round(4.5 * u)) + 'px monospace'; ctx.textAlign = 'left';
+        ctx.fillText('LOJA', cx - 44 * u, top + 8 * u);
+        rect(cx - 50 * u, top + 12 * u, 9 * u, 8 * u, '#202428'); rect(cx - 37 * u, top + 12 * u, 9 * u, 8 * u, '#202428'); rect(cx - 24 * u, top + 12 * u, 9 * u, 8 * u, '#202428');
+        rect(cx - 8 * u, top + 8 * u, 12 * u, 18 * u, '#1a2a30');
+        [[-54, 6], [-14, 12]].forEach(function (v) { for (var n = 0; n < 6; n++) circ(cx + v[0] * u + (n % 3) * 1.6 * u, top + v[1] * u + Math.floor(n / 3) * 1.4 * u, 1.5 * u, n % 2 ? '#2e6b2a' : '#3f8a35'); });
+        for (var c = 0; c < 3; c++) { // mini cabanas no topo
+            var hx = cx - 50 * u + c * 11 * u;
+            rect(hx, top - 6 * u, 7 * u, 4 * u, '#8d6e63');
+            ctx.fillStyle = '#4e342e'; tri(hx - 1 * u, top - 6 * u, hx + 8 * u, top - 6 * u, hx + 3.5 * u, top - 10 * u);
+        }
+        fire(cx - 12 * u, top - 1 * u, u, t, lit, rain); // fogueira do topo
+    }
+
+    // fogueira do chão com troncos-cadeira
+    var fx = cx + 18 * u, fy = g + 4 * u;
+    [[11, 5.5, 7], [25, 5.5, 7], [18, 11.5, 9]].forEach(function (l) {
+        rect(cx + (l[0] - l[2] / 2) * u, g + (l[1] - 0.6) * u, l[2] * u, 2 * u, '#6d4c41');
+        rect(cx + (l[0] - l[2] / 2) * u, g + (l[1] - 0.6) * u, l[2] * u, 0.6 * u, '#8d6e63');
+        circ(cx + (l[0] + l[2] / 2) * u, g + (l[1] + 0.4) * u, 1 * u, '#bca27f');
+    });
+    fire(fx, fy, u, t, lit, rain);
+
+    // trocador (quartas)
+    if (isWed()) {
+        var tx = cx + 44 * u, ty = g + 4 * u;
+        rect(tx - 5 * u, ty - 4 * u, 10 * u, 4 * u, '#6d4c41');
+        for (var s = 0; s < 5; s++) rect(tx - 5.5 * u + s * 2.2 * u, ty - 9 * u, 2.2 * u, 2.2 * u, s % 2 ? '#fff' : '#c62828');
+        rect(tx - 5.5 * u, ty - 9 * u, 0.5 * u, 5 * u, '#4e342e'); rect(tx + 5 * u, ty - 9 * u, 0.5 * u, 5 * u, '#4e342e');
+        rect(tx - 0.8 * u, ty - 8 * u, 1.6 * u, 1.6 * u, '#ffcc80'); rect(tx - 1.2 * u, ty - 8.5 * u, 2.4 * u, 0.6 * u, '#795548');
+        rect(tx - 0.9 * u, ty - 6.4 * u, 1.8 * u, 2.4 * u, '#ffb300');
+        circ(tx + 3 * u, ty - 4.6 * u, 0.9 * u, '#cfd8dc');
+        ctx.font = 'bold ' + Math.max(6, Math.round(2.4 * u)) + 'px monospace'; ctx.textAlign = 'center';
+        ctx.fillStyle = '#000'; ctx.fillText('Trocador', tx + 1, ty - 10.5 * u + 1); ctx.fillStyle = '#e0e0e0'; ctx.fillText('Trocador', tx, ty - 10.5 * u);
+    }
+
+    // zumbis parados (21:00 até o amanhecer)
+    if (hr >= 21 || hr < 5) getZombies().forEach(function (z, i) { zombie(cx + z.ux * u, g + z.uy * u, u, t, i); });
+
+    // jogadores
+    stepAvatars(lvl, hr, rain);
+    var arr = [];
+    Object.keys(AV).forEach(function (k) { var a = AV[k]; if (a.p && !a.inside) arr.push(a); });
+    arr.sort(function (a, b) { return a.uy - b.uy; });
+    arr.forEach(function (a) { person(cx + a.ux * u, g + a.uy * u, u, a, a.p, t, night); });
+
+    // chuva
+    if (rain) {
+        ctx.fillStyle = 'rgba(25,35,60,0.32)'; ctx.fillRect(0, 0, W, H);
+        ctx.strokeStyle = 'rgba(190,210,255,0.6)'; ctx.lineWidth = 1;
+        for (var d = 0; d < 55; d++) {
+            var rx = (d * 37 + (t / 9)) % (W + 20) - 10, ry = ((d * 53) + t / 2.2) % H;
+            ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 2, ry + 5); ctx.stroke();
+        }
+    }
+}
+
+setInterval(function () {
+    if (!gameStarted || document.hidden || $('map-overlay').classList.contains('show')) return;
+    drawBase(Date.now());
+}, 120);
+
+// =====================================================
+//  LOOP DO JOGO E INTERFACE
+// =====================================================
+function tick1s() {
     var now = new Date();
-    var hh = String(now.getHours()).padStart(2, '0');
-    var mm = String(now.getMinutes()).padStart(2, '0');
-    var ss = String(now.getSeconds()).padStart(2, '0');
-    $('clock').innerText = hh + ":" + mm + ":" + ss;
-
-    var m = now.getMinutes();
-    if (m % 5 === 0 && m !== gameState.lastHealMinutes && gameState.hp > 0) {
-        gameState.lastHealMinutes = m;
-        var cura = gameState.professions.medico * 2;
-        gameState.hp = Math.min(100, gameState.hp + cura);
-        addNews("🩺 Médicos curaram o grupo (+" + cura + "% HP).");
-        updateUI();
-    }
-
-    if (parseInt(hh, 10) === 21 && !gameState.attackTriggered) {
-        gameState.attackTriggered = true;
-        executeNightPhase();
-    } else if (parseInt(hh, 10) < 21 && gameState.attackTriggered) {
-        gameState.attackTriggered = false;
-    }
-}
-
-function executeNightPhase() {
-    var p = gameState.professions;
-    var total = p.coletador + p.barricada + p.guarda + p.medico;
-    if (gameState.food >= total && gameState.water >= total) {
-        gameState.food -= total; gameState.water -= total;
-        addNews("🍖 SUPRIMENTOS: Jantar realizado com sucesso.");
-    } else {
-        gameState.hp = Math.max(0, gameState.hp - 25);
-        addNews("🚨 FAMINTOS: Falta de insumos na janta das 21h! (-25% HP)");
-    }
-
-    var danoHorda = Math.floor(Math.random() * 20) + 25;
-    danoHorda = Math.max(5, danoHorda - (p.guarda * 10));
-
-    if (gameState.defense >= danoHorda) {
-        gameState.defense -= danoHorda;
-        addNews("🛡️ ATAQUE: Barricadas absolveram a invasão.");
-    } else {
-        gameState.hp = Math.max(0, gameState.hp - (danoHorda - gameState.defense));
-        gameState.defense = 0;
-        addNews("🚨 INFRAESTRUTURA ROMPIDA: Mortos entraram no complexo!");
-    }
+    $('clock').innerText = ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2) + ":" + ("0" + now.getSeconds()).slice(-2);
+    sec++;
+    if (sec % 20 === 0) { G.food += 1; G.water += 1; }
+    if (G.job) { jobClock++; if (jobClock >= JOBS[G.job].period) { jobClock = 0; doAction(); } }
+    if (nowH() >= 21 && G.lastRaid !== todayKey()) { G.lastRaid = todayKey(); nightPhase(); }
     updateUI();
-    saveLocal();
-    if (gameState.hp <= 0) addNews("💀 BASE DIZIMADA.");
 }
 
 function updateUI() {
-    var p = gameState.professions;
-    var total = p.coletador + p.barricada + p.guarda + p.medico;
-    $('player-tag').innerText = playerName;
-    $('total-players').innerText = total;
-    $('hp').innerText = gameState.hp;
-    $('defense').innerText = gameState.defense;
-    $('scrap').innerText = gameState.scrap;
-    $('food').innerText = gameState.food;
-    $('water').innerText = gameState.water;
-    $('count-coletador').innerText = p.coletador;
-    $('count-barricada').innerText = p.barricada;
-    $('count-guarda').innerText = p.guarda;
-    $('count-medico').innerText = p.medico;
-    $('hud-res').innerText = "❤️" + gameState.hp + "%  🛡️" + gameState.defense + "  🍖" + gameState.food + "  🥤" + gameState.water + "  💰" + gameState.scrap;
-
-    var lvl = getLevel();
-    $('lvl').innerText = lvl;
-    $('lvl-name').innerText = LEVEL_NAMES[lvl];
-    $('bp').innerText = gameState.basePlayers;
+    var lvl = lvlFromN(getPlayers().length), n = getPlayers().length;
+    $('player-tag').innerText = me.name;
+    $('hud-uf').innerText = me.uf;
+    $('hp').innerText = G.hp; $('defense').innerText = G.defense; $('food').innerText = G.food; $('water').innerText = G.water;
+    $('scrap').innerText = G.scrap; $('silver').innerText = G.silver;
+    $('b-hp').style.width = Math.min(100, G.hp) + "%";
+    $('b-def').style.width = Math.min(100, G.defense) + "%";
+    $('b-food').style.width = Math.min(100, G.food * 2) + "%";
+    $('b-water').style.width = Math.min(100, G.water * 2) + "%";
+    $('hud-res').innerText = "❤️" + G.hp + "%  🛡️" + G.defense + "  🍖" + G.food + "  🥤" + G.water + "  💰" + G.scrap + "  🥈" + G.silver;
+    $('hud-wx').innerText = (isRaining() ? "🌧️ " : "") + (localWx.temp !== null ? WX_TEXT[localWx.kind] + " " + Math.round(localWx.temp) + "°C" : "");
+    $('base-name').innerText = stByUf[me.uf] ? stByUf[me.uf].n : "-";
+    $('lvl').innerText = lvl; $('lvl-name').innerText = LEVEL_NAMES[lvl]; $('bp').innerText = n;
     var need = lvl === 1 ? 3 : (lvl === 2 ? 5 : (lvl === 3 ? 10 : 0));
     $('lvl-next').innerText = need ? "(próximo nível com " + need + ")" : "(nível máximo)";
-    if (lvl !== lastLevel) {
-        addNews(lvl > lastLevel ? "🏕️ A base subiu para o nível " + lvl + ": " + LEVEL_NAMES[lvl] + "!" : "🏕️ A base voltou para o nível " + lvl + ".");
-        lastLevel = lvl;
-    }
+    if (online) setOnlineLine("🌐 Online agora na base: " + n + (n === 1 ? " jogador" : " jogadores"));
+    if (lvl !== lastLevel) { toast(lvl > lastLevel ? "🏕️ A base subiu para o nível " + lvl + ": " + LEVEL_NAMES[lvl] + "!" : "🏕️ A base voltou para o nível " + lvl + "."); lastLevel = lvl; }
+    renderTrader();
+    var cur = $('jobs').getAttribute('data-job');
+    if (cur !== G.job) { buildJobs(); $('jobs').setAttribute('data-job', G.job); }
 }
 
-function initGame() {
-    if (gameStarted) return;
-    gameStarted = true;
-    lastLevel = getLevel();
-    setInterval(updateClock, 1000);
-    setInterval(processIdleResources, 4000);
-    setInterval(saveLocal, 2000); // salva sozinho a cada 2 segundos
-    window.addEventListener('beforeunload', saveLocal);
-    updateClock();
-    updateUI();
-    layout();
-    addNews("Seja bem-vindo, " + playerName + ". Defesas ativas.");
+function bootGame() {
+    $('start-overlay').classList.remove('show');
+    if (!me.id) me.id = newId();
+    if (typeof me.shirt !== 'number') me.shirt = hueFromId(me.id);
+    genDecor(); AV = {}; welcomed = false; logs = []; renderLogs();
+    if (!gameStarted && !G.lastRaid && nowH() >= 21) G.lastRaid = todayKey();
+    if (!gameStarted) {
+        gameStarted = true;
+        setInterval(tick1s, 1000);
+        setInterval(saveLocal, 2000); // salva sozinho a cada 2 segundos
+        setInterval(fetchLocalWeather, 600000);
+        window.addEventListener('beforeunload', saveLocal);
+    }
+    lastLevel = 1;
+    buildJobs();
     startOnline();
-}
-
-// =====================================================
-//  JOGADORES REAIS ONLINE (servidor próprio: server.js)
-//  O jogo abre uma conexão com o servidor; o servidor conta
-//  quantas conexões estão abertas e avisa todo mundo.
-// =====================================================
-// Se o jogo for aberto pelo servidor (http://IP:3000), ele já se conecta sozinho.
-// Se o jogo estiver hospedado em outro lugar, escreva aqui o endereço do servidor,
-// por exemplo: "http://192.168.0.10:3000"
-var SERVER_URL_MANUAL = "";
-var SERVER_URL = SERVER_URL_MANUAL ||
-    ((location.protocol === "http:" || location.protocol === "https:") ? location.origin : "");
-var onlineActive = false;
-
-function startOnline() {
-    if (!SERVER_URL) {
-        $('online-line').innerText = "🌐 Online desligado (abra o jogo pelo servidor: node server.js)";
-        return;
-    }
-    if (!window.EventSource) {
-        $('online-line').innerText = "🌐 Este navegador não suporta o modo online";
-        return;
-    }
-    $('online-line').innerText = "🌐 Conectando ao servidor...";
-    var evt = new EventSource(SERVER_URL + "/events");
-
-    // mantém o servidor acordado em hospedagem grátis enquanto há gente jogando
-    setInterval(function () {
-        try { fetch(SERVER_URL + "/ping").catch(function () {}); } catch (e) { /* ignora */ }
-    }, 240000);
-
-    evt.onmessage = function (e) {
-        var n = parseInt(e.data, 10);
-        if (isNaN(n)) return;
-        n = Math.max(1, n);
-        onlineActive = true;
-        gameState.basePlayers = n;
-        $('test-controls').style.display = 'none';
-        $('online-line').innerText = "🌐 Online agora: " + n + (n === 1 ? " jogador" : " jogadores");
-        updateUI();
-    };
-
-    // o navegador tenta reconectar sozinho
-    evt.onerror = function () {
-        onlineActive = false;
-        $('test-controls').style.display = '';
-        $('online-line').innerText = "🌐 Servidor fora do ar, tentando reconectar... (modo teste ativo)";
-    };
+    fetchLocalWeather();
+    loadGeo(function () {});
+    layout();
+    updateUI();
+    saveLocal();
 }
 </script>
 </body>
