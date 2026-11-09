@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Z-Brasil</title>
+<style>
+    html, body {
+        margin: 0; padding: 0; height: 100%; overflow: hidden;
+        background: #121212; color: #e0e0e0;
+        font-family: 'Courier New', Courier, monospace;
+    }
+    #app { position: fixed; top: 0; left: 0; right: 0; bottom: 0; }
+
+    /* ---------- VISÃO 2D DA BASE ---------- */
+    #base-view { position: absolute; top: 0; left: 0; right: 0; background: #000; overflow: hidden; }
+    #base-canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: -moz-crisp-edges; }
+    #hud { position: absolute; top: 6px; left: 8px; right: 8px; pointer-events: none; font-size: 12px; text-shadow: 1px 1px 2px #000; }
+    #hud .row { display: flex; justify-content: space-between; }
+    #hud-res { margin-top: 3px; color: #ffe082; }
+    #player-tag { color: #64b5f6; font-weight: bold; }
+    #clock { color: #ffb74d; font-weight: bold; }
+
+    /* ---------- MENU ARRASTÁVEL ---------- */
+    #sheet {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        background: #1a1a1a; border-top: 2px solid #4caf50;
+        display: flex; flex-direction: column; box-sizing: border-box;
+    }
+    #sheet-handle {
+        height: 30px; flex: none; cursor: ns-resize; background: #222;
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        font-size: 12px; color: #a5d6a7; user-select: none; -webkit-user-select: none;
+        touch-action: none;
+    }
+    .grip { width: 40px; height: 5px; border-radius: 3px; background: #4caf50; }
+    #sheet-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 14px 20px; }
+
+    #status-panel {
+        display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+        background: #222; padding: 12px; font-size: 13px; border-radius: 3px;
+    }
+    .box { background: #252525; padding: 12px; margin: 10px 0; font-size: 13px; border-left: 3px solid #2196f3; border-radius: 3px; }
+    .box.base { border-left-color: #ff9800; }
+    .prof-row { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; }
+    .btn-sm { background: #2196f3; color: #fff; border: none; padding: 4px 10px; cursor: pointer; font-family: inherit; border-radius: 3px; }
+    .btn-main {
+        display: block; width: 100%; background: #2e7d32; color: #fff; border: none;
+        padding: 12px; margin: 8px 0; font-family: inherit; font-size: 14px;
+        cursor: pointer; border-radius: 3px; font-weight: bold;
+    }
+    .btn-alt { background: #455a64; }
+    #news-panel {
+        background: #111; border: 1px solid #444; padding: 10px; margin-top: 10px;
+        height: 130px; overflow-y: auto; font-size: 12px; color: #a5d6a7; border-radius: 3px;
+    }
+
+    /* ---------- TELAS CHEIAS ---------- */
+    .overlay {
+        display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(10,10,10,0.96); z-index: 1000;
+        flex-direction: column; justify-content: center; align-items: center; text-align: center;
+    }
+    .overlay.show { display: flex; }
+    .card { background: #1e1e1e; padding: 22px; border: 2px solid #4caf50; border-radius: 8px; max-width: 420px; width: 90%; box-sizing: border-box; }
+    .input-name { width: 85%; padding: 10px; margin: 8px 0; background: #2b2b2b; border: 1px solid #444; color: #fff; font-family: inherit; text-align: center; }
+    #map-canvas { background: #0d2233; border: 2px solid #4caf50; border-radius: 4px; max-width: 100%; }
+    #map-info { font-size: 12px; color: #ffe082; margin: 6px 10px; min-height: 30px; max-width: 640px; }
+    #map-status { font-size: 11px; color: #999; }
+    .map-btns { display: flex; gap: 8px; width: 90%; max-width: 400px; }
+</style>
+</head>
+<body>
+
+<!-- Escolha do codinome (só na primeira vez) -->
+<div id="start-overlay" class="overlay">
+    <div class="card">
+        <h2 style="color:#4caf50; margin-top:0;">Z-BRASIL</h2>
+        <p style="margin-bottom:5px; font-size:14px;">Defina seu Codinome de Sobrevivente:</p>
+        <input type="text" id="username-input" class="input-name" placeholder="Ex: Capitao_Zero" maxlength="15">
+        <button class="btn-main" onclick="confirmUsername()">Entrar na Base</button>
+    </div>
+</div>
+
+<!-- Mapa do Brasil -->
+<div id="map-overlay" class="overlay">
+    <div style="color:#4caf50; font-weight:bold; margin-bottom:6px;">🗺️ MAPA DO BRASIL — TEMPO AGORA</div>
+    <canvas id="map-canvas"></canvas>
+    <div id="map-info">Toque numa cidade para ver o tempo.</div>
+    <div id="map-status"></div>
+    <div class="map-btns">
+        <button class="btn-main btn-alt" onclick="loadWeather(true)">🔄 Atualizar</button>
+        <button class="btn-main" onclick="closeMap()">Fechar</button>
+    </div>
+</div>
+
+<div id="app">
+    <!-- Metade de cima: base em 2D -->
+    <div id="base-view">
+        <canvas id="base-canvas"></canvas>
+        <div id="hud">
+            <div class="row">
+                <span>👤 <span id="player-tag">...</span></span>
+                <span>🕒 <span id="clock">00:00:00</span></span>
+            </div>
+            <div class="row">
+                <span id="hud-res"></span>
+                <span id="save-state" style="color:#aaa;font-size:11px;"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Metade de baixo: menu que arrasta -->
+    <div id="sheet">
+        <div id="sheet-handle">
+            <div class="grip"></div>
+            <span id="handle-text">Arraste para cima/baixo</span>
+        </div>
+        <div id="sheet-body">
+            <div id="status-panel">
+                <div>👥 Sobreviventes: <span id="total-players">4</span></div>
+                <div>❤️ Vida: <span id="hp">100</span>%</div>
+                <div>🛡️ Defesa: <span id="defense">20</span></div>
+                <div>💰 Sucata: $<span id="scrap">10</span></div>
+                <div>🍖 Comida: <span id="food">15</span></div>
+                <div>🥤 Água: <span id="water">15</span></div>
+            </div>
+
+            <div class="box base">
+                <strong>🏕️ Base — Nível <span id="lvl">1</span>: <span id="lvl-name">Barraca</span></strong>
+                <div style="margin-top:6px;">Jogadores na base: <b id="bp">1</b> <span id="lvl-next" style="color:#aaa;"></span></div>
+                <div id="online-line" style="margin-top:6px;font-size:12px;color:#81d4fa;"></div>
+                <div id="test-controls" style="margin-top:8px;">
+                    <button class="btn-sm" onclick="changeBasePlayers(-1)">−</button>
+                    <button class="btn-sm" onclick="changeBasePlayers(1)">+</button>
+                    <span style="font-size:11px;color:#888;"> (modo teste dos níveis)</span>
+                </div>
+            </div>
+
+            <button class="btn-main" onclick="clickScrap()">⚙️ Procurar Sucatas (+1)</button>
+            <button class="btn-main btn-alt" onclick="openMap()">🗺️ Abrir Mapa do Brasil</button>
+
+            <div class="box">
+                <strong>Funções (Idle Passivo):</strong>
+                <div class="prof-row"><span>🌾 Coletadores: <b id="count-coletador">1</b></span><button class="btn-sm" onclick="buyProfession('coletador')">Contratar ($10)</button></div>
+                <div class="prof-row"><span>🔨 Barricadas: <b id="count-barricada">1</b></span><button class="btn-sm" onclick="buyProfession('barricada')">Contratar ($10)</button></div>
+                <div class="prof-row"><span>⚔️ Guardas (21:00): <b id="count-guarda">1</b></span><button class="btn-sm" onclick="buyProfession('guarda')">Contratar ($10)</button></div>
+                <div class="prof-row"><span>🩺 Médicos (5 em 5 min): <b id="count-medico">1</b></span><button class="btn-sm" onclick="buyProfession('medico')">Contratar ($10)</button></div>
+            </div>
+
+            <div id="news-panel">Iniciando sistema de monitoramento...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+// =====================================================
+//  DADOS GERAIS
+// =====================================================
+var SAVE_KEY = "zbrasil_save";
+var blacklistedWords = [
+    "pau","pinto","bunda","vagina","penis","buceta","caralho",
+    "droga","maconha","cocaina","crack","lança","arma","fuzil",
+    "pistola","oitão","assassinar","matar","biqueira","trafico"
+];
+
+var playerName = "Sobrevivente";
+var gameStarted = false;
+var gameState = defaultState();
+
+function defaultState() {
+    return {
+        hp: 100, defense: 20, scrap: 10, food: 15, water: 15,
+        professions: { coletador: 1, barricada: 1, guarda: 1, medico: 1 },
+        basePlayers: 1,
+        attackTriggered: false,
+        lastHealMinutes: new Date().getMinutes()
+    };
+}
+
+function $(id) { return document.getElementById(id); }
+
+// =====================================================
+//  SALVAMENTO LOCAL (automático a cada 2 segundos)
+// =====================================================
+var lastSaved = "";
+
+function readLocal() {
+    try {
+        var raw = localStorage.getItem(SAVE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+}
+
+function saveLocal() {
+    try {
+        var s = JSON.stringify({ name: playerName, gameState: gameState });
+        if (s === lastSaved) return; // nada mudou, não regrava
+        localStorage.setItem(SAVE_KEY, s);
+        lastSaved = s;
+        $('save-state').innerText = "💾 Salvo " + new Date().toLocaleTimeString('pt-BR');
+    } catch (e) {
+        $('save-state').innerText = "⚠️ Falha ao salvar";
+    }
+}
+
+// =====================================================
+//  INÍCIO
+// =====================================================
+function confirmUsername() {
+    var raw = $('username-input').value.trim();
+    var input = raw.toLowerCase();
+    if (input.length < 3) { alert("O nome precisa ter pelo menos 3 caracteres!"); return; }
+    for (var i = 0; i < blacklistedWords.length; i++) {
+        if (input.indexOf(blacklistedWords[i]) !== -1) {
+            alert("Esse codinome contém palavras proibidas. Escolha outro!");
+            return;
+        }
+    }
+    playerName = raw;
+    $('start-overlay').classList.remove('show');
+    initGame();
+    saveLocal();
+}
+
+window.onload = function () {
+    layout();
+    var local = readLocal();
+    if (local && local.gameState) {
+        playerName = local.name || playerName;
+        gameState = Object.assign(defaultState(), local.gameState);
+        initGame();
+    } else {
+        $('start-overlay').classList.add('show');
+    }
+};
+
+// =====================================================
+//  MENU ARRASTÁVEL  (baixou muito = base em tela cheia)
+// =====================================================
+var HANDLE_H = 30;
+var sheetH = null;
+var dragging = false, dragStartY = 0, dragStartH = 0, dragMoved = false;
+
+function layout() {
+    var ch = $('app').clientHeight;
+    if (sheetH === null) sheetH = Math.round(ch * 0.5);
+    sheetH = Math.max(HANDLE_H, Math.min(sheetH, Math.round(ch * 0.88)));
+    $('sheet').style.height = sheetH + "px";
+    $('base-view').style.height = (ch - sheetH) + "px";
+    $('handle-text').innerText = (sheetH <= HANDLE_H + 2)
+        ? "▲ Puxe para abrir o menu"
+        : "▼ Arraste para baixo para ver só a base";
+    resizeBase();
+}
+
+function startDrag(y) {
+    dragging = true; dragMoved = false;
+    dragStartY = y; dragStartH = sheetH;
+}
+function moveDrag(y) {
+    if (!dragging) return;
+    var dy = dragStartY - y;
+    if (Math.abs(dy) > 4) dragMoved = true;
+    sheetH = dragStartH + dy;
+    layout();
+}
+function endDrag() {
+    if (!dragging) return;
+    dragging = false;
+    var ch = $('app').clientHeight;
+    if (!dragMoved) {
+        // toque simples: alterna entre menu aberto e base em tela cheia
+        sheetH = (sheetH <= HANDLE_H + 2) ? Math.round(ch * 0.5) : HANDLE_H;
+    } else if (sheetH < HANDLE_H + ch * 0.12) {
+        sheetH = HANDLE_H; // abaixou muito: abre a tela da base
+    }
+    layout();
+}
+
+(function () {
+    var h = $('sheet-handle');
+    h.addEventListener('mousedown', function (e) { startDrag(e.clientY); e.preventDefault(); });
+    h.addEventListener('touchstart', function (e) { startDrag(e.touches[0].clientY); }, { passive: true });
+    document.addEventListener('mousemove', function (e) { moveDrag(e.clientY); });
+    document.addEventListener('touchmove', function (e) {
+        if (dragging) { moveDrag(e.touches[0].clientY); e.preventDefault(); }
+    }, { passive: false });
+    document.addEventListener('mouseup', endDrag);
+    document.addEventListener('touchend', function (e) {
+        if (dragging) { endDrag(); e.preventDefault(); }
+    }, { passive: false });
+    window.addEventListener('resize', layout);
+})();
+
+// =====================================================
+//  BASE EM 2D (canvas pequeno, esticado = leve)
+// =====================================================
+var bc = $('base-canvas');
+var ctx = bc.getContext('2d');
+var LEVEL_NAMES = ["", "Barraca", "Cabana de madeira", "Casa abandonada", "Loja abandonada"];
+var lastLevel = 1;
+
+function getLevel() {
+    var n = gameState.basePlayers;
+    if (n >= 10) return 4;
+    if (n >= 5) return 3;
+    if (n >= 3) return 2;
+    return 1;
+}
+
+function resizeBase() {
+    var px = 3; // cada pixel do canvas vira 3 na tela
+    var w = $('base-view').clientWidth, h = $('base-view').clientHeight;
+    bc.width = Math.max(80, Math.floor(w / px));
+    bc.height = Math.max(40, Math.floor(h / px));
+    drawBase(Date.now());
+}
+
+function tri(ax, ay, bx, by, cx, cy) {
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(cx, cy); ctx.closePath(); ctx.fill();
+}
+function rect(x, y, w, h, col) { ctx.fillStyle = col; ctx.fillRect(x, y, w, h); }
+function circ(x, y, r, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); }
+
+function fire(x, y, u, t, night) {
+    var f = Math.sin(t / 90) * 0.6 + Math.sin(t / 37) * 0.4;
+    if (night) circ(x, y - 2 * u, 9 * u + f * u, 'rgba(255,150,40,0.16)');
+    rect(x - 3 * u, y - 1 * u, 6 * u, 1.2 * u, '#4e342e');
+    ctx.fillStyle = '#e65100'; tri(x - 2.2 * u, y - u, x + 2.2 * u, y - u, x, y - (6 + f) * u);
+    ctx.fillStyle = '#ffb300'; tri(x - 1.4 * u, y - u, x + 1.4 * u, y - u, x, y - (4.2 + f * 0.7) * u);
+    ctx.fillStyle = '#fff59d'; tri(x - 0.7 * u, y - u, x + 0.7 * u, y - u, x, y - (2.4 + f * 0.4) * u);
+}
+
+function person(x, y, u, col) {
+    rect(x - 0.7 * u, y - 4.4 * u, 1.4 * u, 1.4 * u, '#ffcc80');
+    rect(x - 0.9 * u, y - 3 * u, 1.8 * u, 2.2 * u, col);
+    rect(x - 0.9 * u, y - 0.8 * u, 0.7 * u, 0.8 * u, '#37474f');
+    rect(x + 0.2 * u, y - 0.8 * u, 0.7 * u, 0.8 * u, '#37474f');
+}
+
+function vine(x, y, u, n) {
+    for (var i = 0; i < n; i++) {
+        circ(x + (i % 3) * 1.6 * u, y + Math.floor(i / 3) * 1.4 * u, 1.5 * u, i % 2 ? '#2e6b2a' : '#3f8a35');
+    }
+}
+
+var STARS = [[.1,.1],[.25,.2],[.4,.08],[.55,.18],[.7,.07],[.85,.2],[.93,.1],[.33,.3],[.62,.3],[.15,.32]];
+var TREES = [.04,.14,.27,.62,.75,.88,.96];
+
+function drawBase(t) {
+    var W = bc.width, H = bc.height;
+    var u = Math.min(H / 100, W / 125);
+    var cx = W / 2, g = H * 0.72;
+
+    // céu conforme a hora real
+    var d = new Date(), hr = d.getHours() + d.getMinutes() / 60;
+    var night = hr < 5.5 || hr >= 18.5;
+    var dusk = (hr >= 17 && hr < 18.5) || (hr >= 5.5 && hr < 7);
+    var c1 = night ? '#0b1026' : (dusk ? '#d9774a' : '#5ab0e0');
+    var c2 = night ? '#1b2a4a' : (dusk ? '#f6c27a' : '#bfe6f5');
+    var gr = ctx.createLinearGradient(0, 0, 0, g);
+    gr.addColorStop(0, c1); gr.addColorStop(1, c2);
+    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, g);
+
+    if (night) {
+        ctx.fillStyle = '#fff';
+        for (var s = 0; s < STARS.length; s++) ctx.fillRect(STARS[s][0] * W, STARS[s][1] * g, 1, 1);
+        circ(W * 0.82, g * 0.18, 3 * u, '#eceff1');
+    } else {
+        circ(W * 0.82, g * 0.18, 3.5 * u, dusk ? '#ff8a50' : '#ffe082');
+    }
+
+    // árvores ao fundo
+    ctx.fillStyle = night ? '#0d2112' : '#1f4d2a';
+    for (var i = 0; i < TREES.length; i++) {
+        var tx = TREES[i] * W;
+        tri(tx - 6 * u, g, tx + 6 * u, g, tx, g - (18 + (i % 3) * 4) * u);
+    }
+
+    // chão
+    rect(0, g, W, H - g, night ? '#1c2616' : '#3b4a2a');
+    rect(0, g, W, 1.2 * u, night ? '#111a0d' : '#2c381f');
+
+    var lvl = getLevel();
+    var fx = cx + 10 * u, fy = g + 3 * u; // fogueira no chão
+
+    if (lvl === 1) {
+        // barraca
+        ctx.fillStyle = '#6d7f3b'; tri(cx - 32 * u, g, cx - 8 * u, g, cx - 20 * u, g - 20 * u);
+        ctx.fillStyle = '#4e5c28'; tri(cx - 20 * u, g - 20 * u, cx - 8 * u, g, cx - 14 * u, g);
+        ctx.fillStyle = '#2b2b1d'; tri(cx - 23 * u, g, cx - 17 * u, g, cx - 20 * u, g - 9 * u);
+    } else if (lvl === 2) {
+        // cabana de madeira
+        rect(cx - 40 * u, g - 17 * u, 32 * u, 17 * u, '#8d6e63');
+        ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 1;
+        for (var k = 1; k < 6; k++) { ctx.beginPath(); ctx.moveTo(cx - 40 * u, g - k * 3 * u); ctx.lineTo(cx - 8 * u, g - k * 3 * u); ctx.stroke(); }
+        ctx.fillStyle = '#4e342e'; tri(cx - 44 * u, g - 17 * u, cx - 4 * u, g - 17 * u, cx - 24 * u, g - 31 * u);
+        rect(cx - 27 * u, g - 10 * u, 6 * u, 10 * u, '#3e2723');
+        rect(cx - 37 * u, g - 13 * u, 5 * u, 5 * u, night ? '#ffcc80' : '#5d4037');
+        rect(cx - 15 * u, g - 13 * u, 5 * u, 5 * u, night ? '#ffcc80' : '#5d4037');
+    } else if (lvl === 3) {
+        // casa abandonada cheia de mato
+        rect(cx - 46 * u, g - 22 * u, 36 * u, 22 * u, '#8a8576');
+        rect(cx - 46 * u, g - 22 * u, 36 * u, 2 * u, '#756f61');
+        ctx.fillStyle = '#5d4a3a';
+        ctx.beginPath();
+        ctx.moveTo(cx - 49 * u, g - 22 * u); ctx.lineTo(cx - 32 * u, g - 37 * u); ctx.lineTo(cx - 24 * u, g - 31 * u);
+        ctx.lineTo(cx - 20 * u, g - 35 * u); ctx.lineTo(cx - 7 * u, g - 22 * u); ctx.closePath(); ctx.fill();
+        rect(cx - 41 * u, g - 16 * u, 6 * u, 7 * u, '#1b1b1b');
+        rect(cx - 21 * u, g - 16 * u, 6 * u, 7 * u, '#1b1b1b');
+        rect(cx - 31 * u, g - 11 * u, 6 * u, 11 * u, '#2a2118');
+        vine(cx - 46 * u, g - 20 * u, u, 6); vine(cx - 16 * u, g - 14 * u, u, 6);
+        vine(cx - 36 * u, g - 33 * u, u, 3); vine(cx - 30 * u, g - 8 * u, u, 3);
+        for (var m = 0; m < 12; m++) rect(cx - 50 * u + m * 4 * u, g - 1.5 * u, 1.2 * u, 2 * u, '#3f8a35');
+    } else {
+        // loja média abandonada, com fogueira e mini cabanas no topo
+        var top = g - 26 * u;
+        rect(cx - 54 * u, top, 62 * u, 26 * u, '#75757d');
+        rect(cx - 56 * u, top - 2 * u, 66 * u, 3 * u, '#5a5a62');
+        rect(cx - 50 * u, top + 3 * u, 28 * u, 6 * u, '#8b3a3a');
+        ctx.fillStyle = '#d7ccc8';
+        ctx.font = 'bold ' + Math.max(6, Math.round(4.5 * u)) + 'px monospace';
+        ctx.fillText('LOJA', cx - 44 * u, top + 8 * u);
+        rect(cx - 50 * u, top + 12 * u, 9 * u, 8 * u, '#202428');
+        rect(cx - 37 * u, top + 12 * u, 9 * u, 8 * u, '#202428');
+        rect(cx - 24 * u, top + 12 * u, 9 * u, 8 * u, '#202428');
+        rect(cx - 8 * u, top + 8 * u, 12 * u, 18 * u, '#1a2a30');
+        vine(cx - 54 * u, top + 6 * u, u, 6); vine(cx - 14 * u, top + 12 * u, u, 6);
+        // mini cabanas no topo
+        for (var c = 0; c < 3; c++) {
+            var hx = cx - 50 * u + c * 11 * u;
+            rect(hx, top - 6 * u, 7 * u, 4 * u, '#8d6e63');
+            ctx.fillStyle = '#4e342e'; tri(hx - 1 * u, top - 6 * u, hx + 8 * u, top - 6 * u, hx + 3.5 * u, top - 10 * u);
+        }
+        fire(cx - 12 * u, top - 1 * u, u, t, night); // fogueira no topo
+        fx = cx + 22 * u; // sem fogueira no chão: só as pessoas ficam aqui
+    }
+
+    if (lvl !== 4) fire(fx, fy, u, t, night);
+
+    // jogadores (um boneco por jogador, até 10)
+    var n = Math.min(gameState.basePlayers, 10);
+    var cols = ['#ef5350', '#42a5f5', '#66bb6a', '#ffa726', '#ab47bc'];
+    for (var p = 0; p < n; p++) {
+        person((lvl === 4 ? cx + 14 * u : cx + 16 * u) + (p % 5) * 5 * u, g + 7 * u + Math.floor(p / 5) * 6 * u, u, cols[p % 5]);
+    }
+}
+
+setInterval(function () {
+    if (!gameStarted || document.hidden) return;
+    if ($('map-overlay').classList.contains('show')) return;
+    drawBase(Date.now());
+}, 120);
+
+// =====================================================
+//  MAPA DO BRASIL + CLIMA EM TEMPO REAL (Open-Meteo)
+// =====================================================
+var CITIES = [
+    { n: "Rio Branco", s: "AC", lat: -9.97, lon: -67.81 },
+    { n: "Maceió", s: "AL", lat: -9.67, lon: -35.74 },
+    { n: "Macapá", s: "AP", lat: 0.03, lon: -51.07 },
+    { n: "Manaus", s: "AM", lat: -3.12, lon: -60.02 },
+    { n: "Salvador", s: "BA", lat: -12.97, lon: -38.51 },
+    { n: "Fortaleza", s: "CE", lat: -3.73, lon: -38.53 },
+    { n: "Brasília", s: "DF", lat: -15.79, lon: -47.88 },
+    { n: "Vitória", s: "ES", lat: -20.32, lon: -40.34 },
+    { n: "Goiânia", s: "GO", lat: -16.68, lon: -49.25 },
+    { n: "São Luís", s: "MA", lat: -2.53, lon: -44.30 },
+    { n: "Cuiabá", s: "MT", lat: -15.60, lon: -56.10 },
+    { n: "Campo Grande", s: "MS", lat: -20.44, lon: -54.65 },
+    { n: "Belo Horizonte", s: "MG", lat: -19.92, lon: -43.94 },
+    { n: "Belém", s: "PA", lat: -1.46, lon: -48.50 },
+    { n: "João Pessoa", s: "PB", lat: -7.12, lon: -34.86 },
+    { n: "Curitiba", s: "PR", lat: -25.43, lon: -49.27 },
+    { n: "Recife", s: "PE", lat: -8.05, lon: -34.88 },
+    { n: "Teresina", s: "PI", lat: -5.09, lon: -42.80 },
+    { n: "Rio de Janeiro", s: "RJ", lat: -22.91, lon: -43.17 },
+    { n: "Natal", s: "RN", lat: -5.79, lon: -35.21 },
+    { n: "Porto Alegre", s: "RS", lat: -30.03, lon: -51.23 },
+    { n: "Porto Velho", s: "RO", lat: -8.76, lon: -63.90 },
+    { n: "Boa Vista", s: "RR", lat: 2.82, lon: -60.67 },
+    { n: "Florianópolis", s: "SC", lat: -27.60, lon: -48.55 },
+    { n: "São Paulo", s: "SP", lat: -23.55, lon: -46.63 },
+    { n: "Aracaju", s: "SE", lat: -10.91, lon: -37.07 },
+    { n: "Palmas", s: "TO", lat: -10.18, lon: -48.33 }
+];
+
+// Contorno aproximado do Brasil [lon, lat]
+var BRAZIL = [
+    [-51.6,4.3],[-50.4,1.9],[-50.0,0.0],[-48.5,-1.0],[-46.5,-1.0],[-44.3,-2.3],[-42.0,-2.8],[-39.5,-3.0],
+    [-37.2,-4.8],[-35.2,-5.3],[-34.8,-7.0],[-35.2,-9.0],[-37.0,-11.0],[-38.5,-13.0],[-39.1,-16.0],[-39.7,-18.3],
+    [-40.5,-20.5],[-41.8,-22.9],[-43.2,-23.0],[-45.0,-23.5],[-46.8,-24.2],[-48.5,-25.8],[-48.5,-27.6],[-49.9,-29.3],
+    [-51.2,-31.0],[-52.6,-32.6],[-53.4,-33.7],[-55.0,-31.5],[-57.5,-30.2],[-56.0,-28.5],[-54.0,-27.2],[-53.7,-26.0],
+    [-54.6,-25.5],[-54.3,-24.0],[-55.5,-22.2],[-57.8,-22.0],[-57.9,-19.5],[-58.2,-17.6],[-60.0,-16.2],[-60.4,-14.0],
+    [-62.5,-12.5],[-65.3,-11.0],[-66.5,-9.9],[-69.5,-10.9],[-72.0,-9.8],[-73.2,-8.5],[-73.9,-7.4],[-72.5,-7.0],
+    [-70.0,-4.3],[-69.8,-1.0],[-69.5,0.6],[-67.0,1.8],[-67.4,2.3],[-65.0,1.5],[-64.0,2.5],[-63.5,3.9],[-62.8,4.1],
+    [-60.7,5.2],[-60.0,4.5],[-59.8,1.9],[-58.0,1.3],[-56.0,2.0],[-54.5,2.3],[-52.5,2.1]
+];
+
+var weather = null;      // lista de {code, temp, day} na mesma ordem de CITIES
+var weatherTime = 0;
+var mapTimer = null;
+
+function wxKind(code) {
+    if (code === 0) return 'clear';
+    if (code <= 2) return 'partly';
+    if (code === 3) return 'cloud';
+    if (code === 45 || code === 48) return 'fog';
+    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return 'rain';
+    if (code >= 95) return 'storm';
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
+    return 'cloud';
+}
+var WX_TEXT = {
+    clear: "céu limpo", partly: "parcialmente nublado", cloud: "nublado",
+    fog: "neblina", rain: "chovendo", storm: "tempestade", snow: "neve"
+};
+
+function proj(lon, lat, size) {
+    var m = size * 0.04, span = 40.5;
+    return [m + (lon + 74.5) / span * (size - 2 * m), m + (5.8 - lat) / span * (size - 2 * m)];
+}
+
+function wxIcon(c, x, y, r, kind, day) {
+    function dot(px, py, pr, col) { c.fillStyle = col; c.beginPath(); c.arc(px, py, pr, 0, 6.2832); c.fill(); }
+    function cloud(col, ox, oy) {
+        ox = ox || 0; oy = oy || 0;
+        dot(x - r * 0.45 + ox, y + r * 0.1 + oy, r * 0.45, col);
+        dot(x + r * 0.05 + ox, y - r * 0.2 + oy, r * 0.55, col);
+        dot(x + r * 0.5 + ox, y + r * 0.1 + oy, r * 0.4, col);
+        c.fillStyle = col; c.fillRect(x - r * 0.45 + ox, y + r * 0.1 + oy, r * 0.95, r * 0.4);
+    }
+    function sun(px, py, pr) {
+        c.strokeStyle = '#ffd54f'; c.lineWidth = 2;
+        for (var a = 0; a < 8; a++) {
+            var an = a * 0.7854;
+            c.beginPath(); c.moveTo(px + Math.cos(an) * pr * 1.3, py + Math.sin(an) * pr * 1.3);
+            c.lineTo(px + Math.cos(an) * pr * 1.8, py + Math.sin(an) * pr * 1.8); c.stroke();
+        }
+        dot(px, py, pr, '#ffd54f');
+    }
+    if (kind === 'clear') {
+        if (day) sun(x, y, r * 0.5); else { dot(x, y, r * 0.55, '#cfd8dc'); dot(x + r * 0.2, y - r * 0.1, r * 0.12, '#b0bec5'); }
+    } else if (kind === 'partly') {
+        if (day) sun(x + r * 0.3, y - r * 0.3, r * 0.35); else dot(x + r * 0.3, y - r * 0.3, r * 0.4, '#cfd8dc');
+        cloud('#cfd8dc', 0, r * 0.15);
+    } else if (kind === 'cloud') {
+        cloud('#b0bec5');
+    } else if (kind === 'fog') {
+        c.strokeStyle = '#cfd8dc'; c.lineWidth = 2;
+        for (var f = -1; f <= 1; f++) { c.beginPath(); c.moveTo(x - r * 0.8, y + f * r * 0.4); c.lineTo(x + r * 0.8, y + f * r * 0.4); c.stroke(); }
+    } else if (kind === 'rain') {
+        cloud('#78909c', 0, -r * 0.2);
+        c.strokeStyle = '#4fc3f7'; c.lineWidth = 2;
+        for (var d = -1; d <= 1; d++) { c.beginPath(); c.moveTo(x + d * r * 0.5, y + r * 0.45); c.lineTo(x + d * r * 0.5 - r * 0.2, y + r * 0.95); c.stroke(); }
+    } else if (kind === 'storm') {
+        cloud('#455a64', 0, -r * 0.2);
+        c.fillStyle = '#ffeb3b'; c.beginPath();
+        c.moveTo(x + r * 0.1, y + r * 0.3); c.lineTo(x - r * 0.25, y + r * 0.7); c.lineTo(x, y + r * 0.7);
+        c.lineTo(x - r * 0.15, y + r * 1.1); c.lineTo(x + r * 0.35, y + r * 0.55); c.lineTo(x + r * 0.1, y + r * 0.55); c.closePath(); c.fill();
+    } else if (kind === 'snow') {
+        cloud('#90a4ae', 0, -r * 0.2);
+        for (var q = -1; q <= 1; q++) dot(x + q * r * 0.5, y + r * 0.7, r * 0.12, '#fff');
+    }
+}
+
+function drawMap() {
+    var cv = $('map-canvas');
+    var size = Math.max(240, Math.min(window.innerWidth - 20, window.innerHeight - 170, 640));
+    cv.width = size; cv.height = size;
+    var c = cv.getContext('2d');
+    c.fillStyle = '#0d2233'; c.fillRect(0, 0, size, size);
+
+    // Brasil
+    c.beginPath();
+    for (var i = 0; i < BRAZIL.length; i++) {
+        var p = proj(BRAZIL[i][0], BRAZIL[i][1], size);
+        if (i === 0) c.moveTo(p[0], p[1]); else c.lineTo(p[0], p[1]);
+    }
+    c.closePath();
+    c.fillStyle = '#2d4a2b'; c.fill();
+    c.strokeStyle = '#6fae5b'; c.lineWidth = 2; c.stroke();
+
+    // cidades + tempo
+    var r = size / 38;
+    c.font = 'bold ' + Math.round(size / 52) + 'px monospace';
+    c.textAlign = 'center';
+    for (var k = 0; k < CITIES.length; k++) {
+        var ct = CITIES[k], pt = proj(ct.lon, ct.lat, size);
+        ct.px = pt[0]; ct.py = pt[1];
+        var w = weather ? weather[k] : null;
+        if (w) {
+            wxIcon(c, pt[0], pt[1], r, wxKind(w.code), w.day === 1);
+            c.fillStyle = '#fff';
+            c.fillText(ct.s + " " + Math.round(w.temp) + "°", pt[0], pt[1] + r * 1.7);
+        } else {
+            c.fillStyle = '#90a4ae'; c.beginPath(); c.arc(pt[0], pt[1], 3, 0, 6.2832); c.fill();
+            c.fillStyle = '#ccc'; c.fillText(ct.s, pt[0], pt[1] + 14);
+        }
+    }
+}
+
+function summarize() {
+    if (!weather) return "Sem dados de clima ainda.";
+    var rainy = [], sunny = 0;
+    for (var i = 0; i < CITIES.length; i++) {
+        var kd = wxKind(weather[i].code);
+        if (kd === 'rain' || kd === 'storm') rainy.push(CITIES[i].n);
+        if (kd === 'clear' && weather[i].day === 1) sunny++;
+    }
+    return "☀️ Sol em " + sunny + " capitais. " +
+        (rainy.length ? "🌧️ Chovendo agora em: " + rainy.join(", ") + "." : "Nenhuma capital com chuva agora.");
+}
+
+function loadWeather(force) {
+    if (!force && weather && Date.now() - weatherTime < 600000) { drawMap(); $('map-info').innerText = summarize(); return; }
+    $('map-status').innerText = "Carregando clima...";
+    var lats = [], lons = [];
+    for (var i = 0; i < CITIES.length; i++) { lats.push(CITIES[i].lat); lons.push(CITIES[i].lon); }
+    var url = "https://api.open-meteo.com/v1/forecast?latitude=" + lats.join(",") +
+              "&longitude=" + lons.join(",") + "&current=temperature_2m,weather_code,is_day&timezone=auto";
+    fetch(url)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            var arr = Array.isArray(data) ? data : [data];
+            weather = arr.map(function (d) {
+                return { code: d.current.weather_code, temp: d.current.temperature_2m, day: d.current.is_day };
+            });
+            weatherTime = Date.now();
+            $('map-status').innerText = "Atualizado às " + new Date().toLocaleTimeString('pt-BR');
+            $('map-info').innerText = summarize();
+            drawMap();
+        })
+        .catch(function () {
+            $('map-status').innerText = "Sem internet ou clima indisponível.";
+            drawMap();
+        });
+}
+
+function openMap() {
+    $('map-overlay').classList.add('show');
+    drawMap();
+    loadWeather(false);
+    clearInterval(mapTimer);
+    mapTimer = setInterval(function () { loadWeather(true); }, 600000);
+}
+function closeMap() {
+    $('map-overlay').classList.remove('show');
+    clearInterval(mapTimer);
+}
+
+$('map-canvas').addEventListener('click', function (e) {
+    if (!weather) return;
+    var cv = $('map-canvas'), rc = cv.getBoundingClientRect();
+    var sx = cv.width / rc.width;
+    var x = (e.clientX - rc.left) * sx, y = (e.clientY - rc.top) * sx;
+    var best = -1, bd = 1e9;
+    for (var i = 0; i < CITIES.length; i++) {
+        var dx = CITIES[i].px - x, dy = CITIES[i].py - y, dd = dx * dx + dy * dy;
+        if (dd < bd) { bd = dd; best = i; }
+    }
+    if (best >= 0 && bd < 40 * 40) {
+        var w = weather[best];
+        $('map-info').innerText = CITIES[best].n + " (" + CITIES[best].s + "): " +
+            WX_TEXT[wxKind(w.code)] + ", " + Math.round(w.temp) + "°C, " + (w.day === 1 ? "dia" : "noite") + ".";
+    }
+});
+
+// =====================================================
+//  LÓGICA DO JOGO
+// =====================================================
+function addNews(msg) {
+    var panel = $('news-panel');
+    var line = document.createElement('div');
+    line.textContent = "[" + new Date().toLocaleTimeString('pt-BR') + "] " + msg;
+    panel.insertBefore(line, panel.firstChild);
+    while (panel.childNodes.length > 40) panel.removeChild(panel.lastChild);
+}
+
+function clickScrap() { gameState.scrap += 1; updateUI(); }
+
+function buyProfession(type) {
+    if (gameState.scrap >= 10) {
+        gameState.scrap -= 10;
+        gameState.professions[type] += 1;
+        addNews("✅ Novo sobrevivente contratado: " + type + ".");
+        updateUI();
+    } else {
+        addNews("❌ Sucata insuficiente para contratar.");
+    }
+}
+
+function changeBasePlayers(d) {
+    if (onlineActive) return; // com o online ligado, quem manda é a contagem real
+    gameState.basePlayers = Math.max(1, Math.min(10, gameState.basePlayers + d));
+    updateUI();
+}
+
+function processIdleResources() {
+    if (gameState.hp <= 0) return;
+    var p = gameState.professions;
+    gameState.food += p.coletador;
+    gameState.water += p.coletador;
+    gameState.defense += p.barricada;
+    gameState.scrap += 1;
+    updateUI();
+}
+
+function updateClock() {
+    var now = new Date();
+    var hh = String(now.getHours()).padStart(2, '0');
+    var mm = String(now.getMinutes()).padStart(2, '0');
+    var ss = String(now.getSeconds()).padStart(2, '0');
+    $('clock').innerText = hh + ":" + mm + ":" + ss;
+
+    var m = now.getMinutes();
+    if (m % 5 === 0 && m !== gameState.lastHealMinutes && gameState.hp > 0) {
+        gameState.lastHealMinutes = m;
+        var cura = gameState.professions.medico * 2;
+        gameState.hp = Math.min(100, gameState.hp + cura);
+        addNews("🩺 Médicos curaram o grupo (+" + cura + "% HP).");
+        updateUI();
+    }
+
+    if (parseInt(hh, 10) === 21 && !gameState.attackTriggered) {
+        gameState.attackTriggered = true;
+        executeNightPhase();
+    } else if (parseInt(hh, 10) < 21 && gameState.attackTriggered) {
+        gameState.attackTriggered = false;
+    }
+}
+
+function executeNightPhase() {
+    var p = gameState.professions;
+    var total = p.coletador + p.barricada + p.guarda + p.medico;
+    if (gameState.food >= total && gameState.water >= total) {
+        gameState.food -= total; gameState.water -= total;
+        addNews("🍖 SUPRIMENTOS: Jantar realizado com sucesso.");
+    } else {
+        gameState.hp = Math.max(0, gameState.hp - 25);
+        addNews("🚨 FAMINTOS: Falta de insumos na janta das 21h! (-25% HP)");
+    }
+
+    var danoHorda = Math.floor(Math.random() * 20) + 25;
+    danoHorda = Math.max(5, danoHorda - (p.guarda * 10));
+
+    if (gameState.defense >= danoHorda) {
+        gameState.defense -= danoHorda;
+        addNews("🛡️ ATAQUE: Barricadas absolveram a invasão.");
+    } else {
+        gameState.hp = Math.max(0, gameState.hp - (danoHorda - gameState.defense));
+        gameState.defense = 0;
+        addNews("🚨 INFRAESTRUTURA ROMPIDA: Mortos entraram no complexo!");
+    }
+    updateUI();
+    saveLocal();
+    if (gameState.hp <= 0) addNews("💀 BASE DIZIMADA.");
+}
+
+function updateUI() {
+    var p = gameState.professions;
+    var total = p.coletador + p.barricada + p.guarda + p.medico;
+    $('player-tag').innerText = playerName;
+    $('total-players').innerText = total;
+    $('hp').innerText = gameState.hp;
+    $('defense').innerText = gameState.defense;
+    $('scrap').innerText = gameState.scrap;
+    $('food').innerText = gameState.food;
+    $('water').innerText = gameState.water;
+    $('count-coletador').innerText = p.coletador;
+    $('count-barricada').innerText = p.barricada;
+    $('count-guarda').innerText = p.guarda;
+    $('count-medico').innerText = p.medico;
+    $('hud-res').innerText = "❤️" + gameState.hp + "%  🛡️" + gameState.defense + "  🍖" + gameState.food + "  🥤" + gameState.water + "  💰" + gameState.scrap;
+
+    var lvl = getLevel();
+    $('lvl').innerText = lvl;
+    $('lvl-name').innerText = LEVEL_NAMES[lvl];
+    $('bp').innerText = gameState.basePlayers;
+    var need = lvl === 1 ? 3 : (lvl === 2 ? 5 : (lvl === 3 ? 10 : 0));
+    $('lvl-next').innerText = need ? "(próximo nível com " + need + ")" : "(nível máximo)";
+    if (lvl !== lastLevel) {
+        addNews(lvl > lastLevel ? "🏕️ A base subiu para o nível " + lvl + ": " + LEVEL_NAMES[lvl] + "!" : "🏕️ A base voltou para o nível " + lvl + ".");
+        lastLevel = lvl;
+    }
+}
+
+function initGame() {
+    if (gameStarted) return;
+    gameStarted = true;
+    lastLevel = getLevel();
+    setInterval(updateClock, 1000);
+    setInterval(processIdleResources, 4000);
+    setInterval(saveLocal, 2000); // salva sozinho a cada 2 segundos
+    window.addEventListener('beforeunload', saveLocal);
+    updateClock();
+    updateUI();
+    layout();
+    addNews("Seja bem-vindo, " + playerName + ". Defesas ativas.");
+    startOnline();
+}
+
+// =====================================================
+//  JOGADORES REAIS ONLINE (servidor próprio: server.js)
+//  O jogo abre uma conexão com o servidor; o servidor conta
+//  quantas conexões estão abertas e avisa todo mundo.
+// =====================================================
+// Se o jogo for aberto pelo servidor (http://IP:3000), ele já se conecta sozinho.
+// Se o jogo estiver hospedado em outro lugar, escreva aqui o endereço do servidor,
+// por exemplo: "http://192.168.0.10:3000"
+var SERVER_URL_MANUAL = "";
+var SERVER_URL = SERVER_URL_MANUAL ||
+    ((location.protocol === "http:" || location.protocol === "https:") ? location.origin : "");
+var onlineActive = false;
+
+function startOnline() {
+    if (!SERVER_URL) {
+        $('online-line').innerText = "🌐 Online desligado (abra o jogo pelo servidor: node server.js)";
+        return;
+    }
+    if (!window.EventSource) {
+        $('online-line').innerText = "🌐 Este navegador não suporta o modo online";
+        return;
+    }
+    $('online-line').innerText = "🌐 Conectando ao servidor...";
+    var evt = new EventSource(SERVER_URL + "/events");
+
+    // mantém o servidor acordado em hospedagem grátis enquanto há gente jogando
+    setInterval(function () {
+        try { fetch(SERVER_URL + "/ping").catch(function () {}); } catch (e) { /* ignora */ }
+    }, 240000);
+
+    evt.onmessage = function (e) {
+        var n = parseInt(e.data, 10);
+        if (isNaN(n)) return;
+        n = Math.max(1, n);
+        onlineActive = true;
+        gameState.basePlayers = n;
+        $('test-controls').style.display = 'none';
+        $('online-line').innerText = "🌐 Online agora: " + n + (n === 1 ? " jogador" : " jogadores");
+        updateUI();
+    };
+
+    // o navegador tenta reconectar sozinho
+    evt.onerror = function () {
+        onlineActive = false;
+        $('test-controls').style.display = '';
+        $('online-line').innerText = "🌐 Servidor fora do ar, tentando reconectar... (modo teste ativo)";
+    };
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "z-brasil",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Z-Brasil: jogo idle com contagem de jogadores online",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
