@@ -1081,6 +1081,7 @@ function lvlFromN(n) { return n >= 10 ? 4 : (n >= 5 ? 3 : (n >= 3 ? 2 : 1)); }
 // =====================================================
 var bc = $('base-canvas'), ctx = bc.getContext('2d');
 
+function hrand(n) { var x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
 function hashStr(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 function rng(seed) { var s = seed >>> 0; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
@@ -1281,10 +1282,15 @@ function drawBase(t) {
     gr.addColorStop(0, c1); gr.addColorStop(1, c2);
     ctx.fillStyle = gr; ctx.fillRect(0, 0, W, g);
     if (night) {
-        ctx.fillStyle = '#fff';
-        var sz = Math.max(1, Math.round(0.4 * u));
-        for (var si = 0; si < 45; si++) ctx.fillRect(Math.round(((si * 0.6180339) % 1) * W), Math.round(((si * 0.3819660 + 0.07) % 1) * g * 0.85), sz, sz);
-        circ(W * 0.82, g * 0.18, 3 * u, '#eceff1');
+        if (!rain) { // estrelas espalhadas, piscando devagar (com chuva o céu fica coberto)
+            for (var si = 0; si < 60; si++) {
+                var sx = Math.round(hrand(si * 2 + 1) * W), sy = Math.round(hrand(si * 2 + 2) * g * 0.88);
+                var ss = Math.max(1, Math.round((si % 9 === 0 ? 0.7 : 0.4) * u));
+                ctx.fillStyle = 'rgba(255,255,255,' + (0.65 + 0.35 * Math.sin(t / 700 + si * 1.7)).toFixed(2) + ')';
+                ctx.fillRect(sx, sy, ss, ss);
+            }
+            circ(W * 0.82, g * 0.18, 3 * u, '#eceff1');
+        } else circ(W * 0.82, g * 0.18, 3 * u, 'rgba(200,210,225,0.35)');
     } else circ(W * 0.82, g * 0.18, 3.5 * u, dusk ? '#ff8a50' : '#ffe082');
 
     // nuvens devagar no céu (de dia)
@@ -1385,10 +1391,11 @@ function drawBase(t) {
     if (rain) {
         ctx.fillStyle = 'rgba(25,35,60,0.32)'; ctx.fillRect(0, 0, W, H);
         ctx.strokeStyle = 'rgba(190,210,255,0.6)'; ctx.lineWidth = Math.max(1, 0.3 * u);
-        var nd = Math.min(120, Math.round(W / 10)), len = 1.8 * u;
+        var nd = Math.min(130, Math.round(W / 9));
         for (var d = 0; d < nd; d++) {
-            var rx = ((((d * 0.618034) % 1) * (W + 30) - t * 0.02 * u) % (W + 30) + (W + 30)) % (W + 30) - 15;
-            var ry = (((d * 0.381966) % 1) * H + t * 0.06 * u) % H;
+            var sp = 0.75 + hrand(d * 3 + 7) * 0.7, len = (1.4 + hrand(d * 3 + 8) * 1.2) * u;
+            var rx = (((hrand(d * 3 + 5) * (W + 30) - t * 0.02 * u * sp) % (W + 30)) + (W + 30)) % (W + 30) - 15;
+            var ry = (hrand(d * 3 + 6) * H + t * 0.06 * u * sp) % H;
             ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - len * 0.35, ry + len); ctx.stroke();
         }
     }
