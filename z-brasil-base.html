@@ -803,12 +803,19 @@ function getPlayers() {
 }
 
 // ---------- notícias (logs) ----------
+var notes = []; // avisos só seus (ex.: ataque enquanto você estava off-line)
+function addNote(text) {
+    notes.push({ t: Date.now(), text: text });
+    if (notes.length > 10) notes.shift();
+    renderLogs();
+}
 function renderLogs() {
     var p = $('news-panel');
     p.innerHTML = "";
-    for (var i = logs.length - 1; i >= 0; i--) {
-        var d = new Date(logs[i].t), div = document.createElement('div');
-        div.textContent = "[" + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2) + "] " + logs[i].text;
+    var all = logs.concat(notes).sort(function (x, y) { return x.t - y.t; });
+    for (var i = all.length - 1; i >= 0; i--) {
+        var d = new Date(all[i].t), div = document.createElement('div');
+        div.textContent = "[" + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2) + "] " + all[i].text;
         p.appendChild(div);
     }
 }
@@ -994,6 +1001,33 @@ function doAction() { // ação periódica do emprego
 }
 
 function clickScrap() { B.scrap += 1; updateUI(); }
+
+// quantos "21:00" passaram desde que você saiu
+function missedRaids(lastSeen) {
+    var now = Date.now(), n = 0, d = new Date(lastSeen);
+    d.setHours(21, 0, 0, 0);
+    if (d.getTime() <= lastSeen) d.setDate(d.getDate() + 1);
+    while (d.getTime() <= now) { n++; d.setDate(d.getDate() + 1); }
+    return n;
+}
+
+// os zumbis atacam mesmo com você off-line: o dano é aplicado quando você volta
+function applyOfflineRaids() {
+    if (!G.lastSeen) return;
+    var n = Math.min(missedRaids(G.lastSeen), 3), lostDef = 0, lostHp = 0;
+    if (n <= 0) return;
+    for (var i = 0; i < n; i++) {
+        var dano = Math.floor(Math.random() * 20) + 25; // sem guardas: ninguém estava lá
+        if (B.defense >= dano) { B.defense -= dano; lostDef += dano; }
+        else { var extra = dano - B.defense; lostDef += B.defense; B.defense = 0; B.hp = Math.max(0, B.hp - extra); lostHp += extra; }
+    }
+    if (new Date().getHours() >= 21) B.lastRaid = todayKey(); // o ataque de hoje já foi contado
+    var fell = B.hp <= 0;
+    if (fell) { B.hp = 30; B.defense = 10; }
+    addNote("🧟 Os zumbis atacaram a sua base quando você estava off-line!");
+    addNote("💥 " + (n > 1 ? n + " noites: " : "") + "-" + lostDef + " de defesa" + (lostHp ? " e -" + lostHp + " de vida" : "") + (fell ? ". A base caiu e você voltou com pouca vida." : "."));
+    toast("🧟 Os zumbis atacaram a sua base quando você estava off-line!");
+}
 
 function countGuards() { return getPlayers().filter(function (p) { return p.job === "guarda"; }).length; }
 
@@ -1413,6 +1447,8 @@ function tick1s() {
     var now = new Date();
     $('clock').innerText = ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2) + ":" + ("0" + now.getSeconds()).slice(-2);
     sec++;
+    if (G.lastSeen && Date.now() - G.lastSeen > 120000) applyOfflineRaids(); // aba ficou congelada
+    G.lastSeen = Date.now();
     if (sec % 5 === 0) personalTick();
     if (G.job) { jobClock++; if (jobClock >= JOBS[G.job].period) { jobClock = 0; doAction(); } }
     if (nowH() >= 21 && B.lastRaid !== todayKey()) { B.lastRaid = todayKey(); nightPhase(); }
@@ -1453,6 +1489,7 @@ function bootGame() {
     if (!me.id) me.id = newId();
     if (typeof me.shirt !== 'number') me.shirt = hueFromId(me.id);
     genDecor(); AV = {}; welcomed = false; logs = []; renderLogs();
+    if (!gameStarted) { applyOfflineRaids(); G.lastSeen = Date.now(); }
     if (!gameStarted && !B.lastRaid && nowH() >= 21) B.lastRaid = todayKey();
     if (!gameStarted) {
         gameStarted = true;
