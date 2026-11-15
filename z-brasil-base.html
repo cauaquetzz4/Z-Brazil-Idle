@@ -221,24 +221,6 @@
                 <strong>📰 Notícias da base (online)</strong>
                 <div id="news-panel"></div>
             </div>
-
-            <details>
-                <summary>🧪 Modo teste</summary>
-                <div style="margin-top:6px;">
-                    <button class="btn-sm" onclick="dbgRain()">Chuva: <span id="d-rain">auto</span></button>
-                    <button class="btn-sm" onclick="dbgWed()">Quarta: <span id="d-wed">auto</span></button>
-                    <button class="btn-sm" onclick="dbgFake(1)">+ jogador falso</button>
-                    <button class="btn-sm" onclick="dbgFake(-1)">− jogador falso</button>
-                    <button class="btn-sm" onclick="dbgRaid()">Forçar ataque</button>
-                </div>
-                <div style="margin-top:6px;">Hora:
-                    <button class="btn-sm" onclick="dbgHour(null)">auto</button>
-                    <button class="btn-sm" onclick="dbgHour(12)">12h</button>
-                    <button class="btn-sm" onclick="dbgHour(18.2)">18h</button>
-                    <button class="btn-sm" onclick="dbgHour(19.5)">19h</button>
-                    <button class="btn-sm" onclick="dbgHour(21.2)">21h</button>
-                </div>
-            </details>
         </div>
     </div>
 </div>
@@ -311,14 +293,11 @@ function newBase() {
     return { hp: 100, defense: 20, food: 15, water: 15, scrap: 10, silver: 0, goldBat: false, lastRaid: "" };
 }
 
-var DBG = { hour: null, rain: null, wed: null, fake: 0 };
-
 function nowH() {
-    if (DBG.hour !== null) return DBG.hour;
     var d = new Date();
     return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
 }
-function isWed() { return DBG.wed !== null ? DBG.wed : new Date().getDay() === 3; }
+function isWed() { return new Date().getDay() === 3; }
 function fireOn(h) { return h >= 18 || h < 6; }
 function todayKey() { var d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
 
@@ -661,7 +640,7 @@ function fetchLocalWeather() {
         updateUI();
     }).catch(function () { /* sem internet: mantém o último */ });
 }
-function isRaining() { return DBG.rain !== null ? DBG.rain : localWx.raining; }
+function isRaining() { return localWx.raining; }
 
 // =====================================================
 //  MAPA DO BRASIL (com divisas dos estados)
@@ -883,8 +862,6 @@ function getPlayers() {
     var hasMe = false;
     list.forEach(function (p) { if (p.id === me.id) { p.job = G.job; p.shirt = me.shirt; p.gb = B.goldBat ? 1 : 0; hasMe = true; } });
     if (!hasMe) list.unshift({ id: me.id, name: me.name, shirt: me.shirt, job: G.job, gb: B.goldBat ? 1 : 0 });
-    var jobs = ["coletador", "barricada", "guarda", "medico"];
-    for (var i = 0; i < DBG.fake; i++) list.push({ id: "fake" + i, name: "Bot" + (i + 1), shirt: (i * 57 + 20) % 360, job: jobs[i % 4] });
     return list;
 }
 
@@ -1181,13 +1158,6 @@ function renderTrader() {
     });
     box.innerHTML = h;
 }
-
-// ---------- modo teste ----------
-function dbgRain() { DBG.rain = DBG.rain === null ? true : (DBG.rain === true ? false : null); $('d-rain').innerText = DBG.rain === null ? "auto" : (DBG.rain ? "sim" : "não"); }
-function dbgWed() { DBG.wed = DBG.wed === null ? true : (DBG.wed === true ? false : null); $('d-wed').innerText = DBG.wed === null ? "auto" : (DBG.wed ? "sim" : "não"); traderKey = ""; updateUI(); }
-function dbgFake(d) { DBG.fake = Math.max(0, Math.min(12, DBG.fake + d)); updateUI(); }
-function dbgHour(h) { DBG.hour = h; B.lastRaid = ""; updateUI(); }
-function dbgRaid() { nightPhase(); updateUI(); }
 
 // =====================================================
 //  NÍVEL DA BASE
