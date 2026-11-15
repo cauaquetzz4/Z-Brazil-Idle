@@ -10,7 +10,7 @@
     button { font-family:inherit; }
 
     /* ---------- BASE 2D ---------- */
-    #base-view { position:absolute; top:0; left:0; right:0; background:#000; overflow:hidden; }
+    #base-view { position:absolute; top:0; left:0; right:0; bottom:0; background:#000; overflow:hidden; }
     #base-canvas { width:100%; height:100%; display:block; }
     #hud { position:absolute; top:6px; left:8px; right:8px; pointer-events:none; font-size:12px; text-shadow:1px 1px 2px #000; }
     #hud .row { display:flex; justify-content:space-between; align-items:flex-start; }
@@ -21,9 +21,24 @@
     #hud-wx { color:#81d4fa; }
 
     /* ---------- MENU ARRASTÁVEL ---------- */
-    #sheet { position:absolute; left:0; right:0; bottom:0; background:#1a1a1a; border-top:2px solid #4caf50; display:flex; flex-direction:column; box-sizing:border-box; }
-    #sheet-handle { height:30px; flex:none; cursor:ns-resize; background:#222; display:flex; align-items:center; justify-content:center; gap:10px; font-size:12px; color:#a5d6a7; user-select:none; -webkit-user-select:none; touch-action:none; }
-    .grip { width:40px; height:5px; border-radius:3px; background:#4caf50; }
+    #sheet { display:none; position:absolute; background:#1a1a1a; border:2px solid #4caf50; flex-direction:column; box-sizing:border-box; z-index:20; }
+    #sheet.open { display:flex; }
+    #sheet-head { height:44px; flex:none; background:#222; display:flex; align-items:center; gap:12px; padding:0 8px; color:#a5d6a7; font-size:14px; font-weight:bold; }
+    #back-btn { background:#2e7d32; color:#fff; border:none; border-radius:6px; padding:8px 12px; font-size:14px; font-weight:bold; cursor:pointer; }
+    /* celular em pé: menu na metade de baixo | deitado/PC: menu na metade da direita */
+    @media (orientation:portrait) {
+        #sheet { left:0; right:0; bottom:0; height:50%; }
+        body.menu-open #base-view { bottom:50%; }
+    }
+    @media (orientation:landscape) {
+        #sheet { top:0; right:0; bottom:0; width:50%; }
+        body.menu-open #base-view { right:50%; }
+    }
+    #menu-btn { position:fixed; left:0; top:84px; z-index:900; background:#1b5e20; color:#fff; border:2px solid #4caf50; border-left:none; border-radius:0 10px 10px 0; padding:8px 10px; font-size:18px; cursor:pointer; }
+    #joy { display:none; position:absolute; left:16px; bottom:16px; width:124px; height:124px; border-radius:50%; background:rgba(255,255,255,.12); border:2px solid rgba(255,255,255,.35); z-index:15; touch-action:none; }
+    body.touch #joy { display:block; }
+    #joy-knob { position:absolute; left:34px; top:34px; width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.55); pointer-events:none; }
+    #fs-btn { pointer-events:auto; background:rgba(0,0,0,.55); color:#fff; border:1px solid #666; border-radius:6px; padding:2px 7px; font-size:14px; cursor:pointer; }
     #sheet-body { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:10px 14px 30px; }
 
     .bars { background:#222; padding:10px 12px; border-radius:4px; font-size:12px; }
@@ -56,7 +71,7 @@
     details button { margin:3px 2px; }
 
     /* ---------- CHAT ---------- */
-    #chat-btn { position:fixed; left:0; top:36%; z-index:900; background:#1b5e20; color:#fff; border:2px solid #4caf50; border-left:none; border-radius:0 10px 10px 0; padding:10px 8px; font-size:18px; cursor:pointer; }
+    #chat-btn { position:fixed; left:0; top:136px; z-index:900; background:#1b5e20; color:#fff; border:2px solid #4caf50; border-left:none; border-radius:0 10px 10px 0; padding:10px 8px; font-size:18px; cursor:pointer; }
     #chat-badge { display:none; position:absolute; top:-6px; right:-6px; background:#e53935; color:#fff; border-radius:9px; font-size:11px; padding:1px 5px; }
     #chat-panel { display:none; position:fixed; left:0; top:8%; width:90%; max-width:340px; height:55%; background:#161616; border:2px solid #4caf50; border-left:none; border-radius:0 10px 10px 0; z-index:950; flex-direction:column; }
     #chat-panel.show { display:flex; }
@@ -120,6 +135,7 @@
 </div>
 
 <!-- Chat -->
+<button id="menu-btn" onclick="toggleMenu()">☰</button>
 <button id="chat-btn" onclick="toggleChat()">💬<span id="chat-badge"></span></button>
 <div id="chat-panel">
     <div id="chat-head">
@@ -140,7 +156,7 @@
         <div id="hud">
             <div class="row">
                 <span>👤 <span id="player-tag">...</span> · <span id="hud-uf"></span></span>
-                <span>🕒 <span id="clock">00:00:00</span> <button id="sound-btn" onclick="toggleSound()">🔊</button></span>
+                <span>🕒 <span id="clock">00:00:00</span> <button id="fs-btn" onclick="goLandscape()">⛶</button> <button id="sound-btn" onclick="toggleSound()">🔊</button></span>
             </div>
             <div class="row">
                 <span id="hud-res"></span>
@@ -148,12 +164,13 @@
             </div>
             <div style="font-size:11px;color:#aaa;" id="save-state"></div>
         </div>
+        <div id="joy"><div id="joy-knob"></div></div>
     </div>
 
     <div id="sheet">
-        <div id="sheet-handle">
-            <div class="grip"></div>
-            <span id="handle-text">Arraste para cima/baixo</span>
+        <div id="sheet-head">
+            <button id="back-btn" onclick="closeMenu()">⬅ Voltar</button>
+            <span>Menu da base</span>
         </div>
         <div id="sheet-body">
             <div style="font-size:12px; color:#ffcc80; margin-bottom:5px;">🎒 Seus recursos (só seus)</div>
@@ -449,45 +466,113 @@ window.onload = function () {
 };
 
 // =====================================================
-//  MENU ARRASTÁVEL (baixou muito = base em tela cheia)
+//  MENU (botão ☰ abre metade da tela; ⬅ Voltar fecha) e TELA DEITADA
 // =====================================================
-var HANDLE_H = 30, sheetH = null, dragging = false, dragStartY = 0, dragStartH = 0, dragMoved = false;
+function layout() { resizeBase(); }
+function openMenu() { $('sheet').classList.add('open'); document.body.classList.add('menu-open'); layout(); }
+function closeMenu() { $('sheet').classList.remove('open'); document.body.classList.remove('menu-open'); layout(); }
+function toggleMenu() { if ($('sheet').classList.contains('open')) closeMenu(); else openMenu(); }
+window.addEventListener('resize', layout);
+window.addEventListener('orientationchange', function () { setTimeout(layout, 250); });
 
-function layout() {
-    var ch = $('app').clientHeight;
-    if (sheetH === null) sheetH = Math.round(ch * 0.5);
-    sheetH = Math.max(HANDLE_H, Math.min(sheetH, Math.round(ch * 0.88)));
-    $('sheet').style.height = sheetH + "px";
-    $('base-view').style.height = (ch - sheetH) + "px";
-    $('handle-text').innerText = (sheetH <= HANDLE_H + 2) ? "▲ Puxe para abrir o menu" : "▼ Arraste para baixo para ver só a base";
-    resizeBase();
+function goLandscape() { // tela cheia + trava deitado (se o aparelho deixar)
+    var el = document.documentElement, rf = el.requestFullscreen || el.webkitRequestFullscreen;
+    function lock() {
+        try {
+            if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () { toast("Gire o celular para deitar."); });
+            else toast("Gire o celular para deitar.");
+        } catch (e) { toast("Gire o celular para deitar."); }
+    }
+    try {
+        var pr = rf ? rf.call(el) : null;
+        if (pr && pr.then) pr.then(lock).catch(function () { toast("Gire o celular para deitar."); }); else lock();
+    } catch (e) { toast("Gire o celular para deitar."); }
 }
-function startDrag(y) { dragging = true; dragMoved = false; dragStartY = y; dragStartH = sheetH; }
-function moveDrag(y) {
-    if (!dragging) return;
-    var dy = dragStartY - y;
-    if (Math.abs(dy) > 4) dragMoved = true;
-    sheetH = dragStartH + dy;
-    layout();
+
+// =====================================================
+//  CONTROLES: WASD / setas no PC, joystick no celular
+// =====================================================
+var KEYS = {}, JOYV = { x: 0, y: 0 };
+var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+var MAN = { until: 0, moving: false };           // você está controlando o boneco
+var FDT = 0.12, UYMAX = 24, UXMIN = -60, UXMAX = 60;
+var POS = {};                                    // posições dos outros jogadores (mandadas pelo servidor)
+var lastPosSent = 0;
+if (IS_TOUCH) document.body.classList.add('touch');
+
+function isTyping() { var t = document.activeElement && document.activeElement.tagName; return t === 'INPUT' || t === 'SELECT' || t === 'TEXTAREA'; }
+function keyName(e) {
+    var k = (e.key || '').toLowerCase();
+    if (k === 'w' || k === 'arrowup') return 'up';
+    if (k === 's' || k === 'arrowdown') return 'down';
+    if (k === 'a' || k === 'arrowleft') return 'left';
+    if (k === 'd' || k === 'arrowright') return 'right';
+    return '';
 }
-function endDrag() {
-    if (!dragging) return;
-    dragging = false;
-    var ch = $('app').clientHeight;
-    if (!dragMoved) sheetH = (sheetH <= HANDLE_H + 2) ? Math.round(ch * 0.5) : HANDLE_H;
-    else if (sheetH < HANDLE_H + ch * 0.12) sheetH = HANDLE_H;
-    layout();
+window.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { closeMenu(); return; }
+    if (isTyping() || e.ctrlKey || e.metaKey || e.altKey) return;
+    var k = keyName(e);
+    if (k) { KEYS[k] = true; e.preventDefault(); }
+});
+window.addEventListener('keyup', function (e) { var k = keyName(e); if (k) KEYS[k] = false; });
+window.addEventListener('blur', function () { KEYS = {}; });
+
+function inputVec() {
+    var x = 0, y = 0;
+    if (KEYS.left) x -= 1; if (KEYS.right) x += 1; if (KEYS.up) y -= 1; if (KEYS.down) y += 1;
+    x += JOYV.x; y += JOYV.y;
+    var m = Math.sqrt(x * x + y * y);
+    if (m > 1) { x /= m; y /= m; m = 1; }
+    return { x: x, y: y, m: m };
 }
-(function () {
-    var h = $('sheet-handle');
-    h.addEventListener('mousedown', function (e) { startDrag(e.clientY); e.preventDefault(); });
-    h.addEventListener('touchstart', function (e) { startDrag(e.touches[0].clientY); }, { passive: true });
-    document.addEventListener('mousemove', function (e) { moveDrag(e.clientY); });
-    document.addEventListener('touchmove', function (e) { if (dragging) { moveDrag(e.touches[0].clientY); e.preventDefault(); } }, { passive: false });
-    document.addEventListener('mouseup', endDrag);
-    document.addEventListener('touchend', function (e) { if (dragging) { endDrag(); e.preventDefault(); } }, { passive: false });
-    window.addEventListener('resize', layout);
+
+(function () { // joystick (toque ou mouse)
+    var joy = $('joy'), knob = $('joy-knob'), active = false, tid = null, cx = 0, cy = 0, R = 40;
+    function begin(x, y) { var r = joy.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; active = true; move(x, y); }
+    function move(x, y) {
+        if (!active) return;
+        var dx = x - cx, dy = y - cy, d = Math.sqrt(dx * dx + dy * dy);
+        if (d > R) { dx = dx / d * R; dy = dy / d * R; }
+        knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+        var dead = d < 8 ? 0 : 1;
+        JOYV.x = dead * dx / R; JOYV.y = dead * dy / R;
+    }
+    function end() { active = false; tid = null; JOYV.x = 0; JOYV.y = 0; knob.style.transform = 'translate(0,0)'; }
+    function find(list) { for (var i = 0; i < list.length; i++) if (list[i].identifier === tid) return list[i]; return null; }
+    joy.addEventListener('touchstart', function (e) { var t = e.changedTouches[0]; tid = t.identifier; begin(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
+    document.addEventListener('touchmove', function (e) { if (!active) return; var t = find(e.changedTouches); if (t) { move(t.clientX, t.clientY); e.preventDefault(); } }, { passive: false });
+    document.addEventListener('touchend', function (e) { if (active && find(e.changedTouches)) end(); });
+    document.addEventListener('touchcancel', function (e) { if (active && find(e.changedTouches)) end(); });
+    joy.addEventListener('mousedown', function (e) { begin(e.clientX, e.clientY); e.preventDefault(); });
+    document.addEventListener('mousemove', function (e) { if (active && tid === null) move(e.clientX, e.clientY); });
+    document.addEventListener('mouseup', function () { if (active && tid === null) end(); });
 })();
+
+function sendPos(force) {
+    if (!online || getPlayers().length < 2) return;
+    var now = Date.now(), a = AV[me.id];
+    if (!a || (!force && now - lastPosSent < 140)) return;
+    lastPosSent = now;
+    post("/pos", { id: me.id, x: Math.round(a.ux * 10) / 10, y: Math.round(a.uy * 10) / 10 });
+}
+
+function stepSelf(dt) { // anda com o seu boneco
+    var a = AV[me.id];
+    if (!a) return;
+    var v = inputVec(), now = Date.now();
+    if (v.m > 0.05) {
+        a.ux = Math.max(UXMIN, Math.min(UXMAX, a.ux + v.x * 7.5 * v.m * dt));
+        a.uy = Math.max(1, Math.min(UYMAX, a.uy + v.y * 7.5 * v.m * dt));
+        a.st = 'walk'; a.inside = false;
+        MAN.until = now + 10000; MAN.moving = true;
+        sendPos(false);
+    } else if (MAN.moving) {
+        MAN.moving = false; a.st = 'idle'; sendPos(true);
+    } else if (now < MAN.until && now - lastPosSent > 1000) {
+        sendPos(true); // avisa que você continua aí parado
+    }
+}
 
 // =====================================================
 //  GEOGRAFIA (divisas dos estados - IBGE)
@@ -781,6 +866,7 @@ function startOnline() {
     });
     evt.addEventListener("totals", function (e) { T = JSON.parse(e.data); updateUI(); });
     evt.addEventListener("fx", function (e) { applyFx(JSON.parse(e.data).type); });
+    evt.addEventListener("pos", function (e) { var d = JSON.parse(e.data); POS[d.id] = { x: d.x, y: d.y, t: Date.now() }; });
     evt.onerror = function () { online = false; setOnlineLine("🌐 Servidor fora do ar, tentando reconectar..."); };
 
     if (!pingStarted) {
@@ -1255,6 +1341,7 @@ var GUARD_POSTS = [{ x: -4, y: 6 }, { x: 36, y: 7 }, { x: -52, y: 7 }, { x: 46, 
 function doorUx(lvl) { return lvl === 1 ? -20 : (lvl === 2 ? -24 : (lvl === 3 ? -28 : -2)); }
 
 function stepAvatars(lvl, hr, rain) {
+    var dt = FDT, nowMs = Date.now();
     var list = getPlayers().slice().sort(function (a, b) { return a.id < b.id ? -1 : 1; });
     var ids = {};
     list.forEach(function (p) { ids[p.id] = 1; });
@@ -1264,8 +1351,13 @@ function stepAvatars(lvl, hr, rain) {
     list.forEach(function (p) {
         var a = AV[p.id];
         if (!a) { var rr = rng(hashStr(p.id)); a = AV[p.id] = { ux: -40 + rr() * 90, uy: 6 + rr() * 8, tx: 0, ty: 0, wait: 0, st: 'walk', inside: false, rr: rr }; }
-        var tx, ty, speed = 0.45, mode = 'walk';
-        if (rain) { tx = door; ty = 1.5; speed = 1.0; mode = 'run'; }
+        a.p = p; a.slot = slotN++;
+        if (p.id === me.id && nowMs < MAN.until) { a.inside = false; return; } // você está controlando (stepSelf anda)
+
+        var rp = POS[p.id], remote = p.id !== me.id && rp && nowMs - rp.t < 2500; // outro jogador andando
+        var tx, ty, speed = 3.75, mode = 'walk';
+        if (remote) { tx = rp.x; ty = rp.y; speed = 12; mode = 'remote'; a.inside = false; }
+        else if (rain) { tx = door; ty = 1.5; speed = 8.3; mode = 'run'; }
         else {
             if (a.inside) { a.inside = false; a.ux = door; a.uy = 1.5; }
             if (guardTime && p.job === 'guarda') { var gp = GUARD_POSTS[post++ % GUARD_POSTS.length]; tx = gp.x; ty = gp.y; mode = 'guard'; }
@@ -1275,15 +1367,18 @@ function stepAvatars(lvl, hr, rain) {
                 mode = 'sit';
             } else {
                 mode = 'walk';
-                if (a.wait > 0) { a.wait--; tx = a.ux; ty = a.uy; }
-                else if (!a.tx && !a.ty || Math.abs(a.ux - a.tx) < speed && Math.abs(a.uy - a.ty) < speed) { a.tx = -58 + a.rr() * 116; a.ty = 5 + a.rr() * 10; a.wait = 8 + Math.floor(a.rr() * 25); tx = a.ux; ty = a.uy; }
+                if (a.wait > 0) { a.wait -= dt; tx = a.ux; ty = a.uy; }
+                else if ((!a.tx && !a.ty) || (Math.abs(a.ux - a.tx) < 0.6 && Math.abs(a.uy - a.ty) < 0.6)) { a.tx = -58 + a.rr() * 116; a.ty = 5 + a.rr() * 10; a.wait = 1 + a.rr() * 3; tx = a.ux; ty = a.uy; }
                 else { tx = a.tx; ty = a.ty; }
             }
         }
-        var dx = tx - a.ux, dy = ty - a.uy, dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist <= speed) { a.ux = tx; a.uy = ty; a.st = rain ? 'run' : (mode === 'sit' ? 'sit' : (mode === 'guard' ? 'stand' : 'idle')); if (rain) a.inside = true; }
-        else { a.ux += dx / dist * speed; a.uy += dy / dist * speed; a.st = rain ? 'run' : 'walk'; }
-        a.p = p; a.slot = slotN++;
+        var dx = tx - a.ux, dy = ty - a.uy, dist = Math.sqrt(dx * dx + dy * dy), step = speed * dt;
+        var running = rain && mode !== 'remote';
+        if (dist <= Math.max(step, 0.05)) {
+            a.ux = tx; a.uy = ty;
+            a.st = running ? 'run' : (mode === 'sit' ? 'sit' : (mode === 'guard' ? 'stand' : 'idle'));
+            if (running) a.inside = true;
+        } else { a.ux += dx / dist * step; a.uy += dy / dist * step; a.st = running ? 'run' : 'walk'; }
     });
 }
 
@@ -1306,6 +1401,7 @@ function getZombies() {
 function drawBase(t) {
     var W = bc.width, H = bc.height, u = Math.min(H / 100, W / 116);
     var cx = Math.round(W / 2 + 3 * u), g = Math.round(Math.min(H * 0.72, H / 2 + 22 * u));
+    UYMAX = Math.max(8, Math.min(30, (H - g) / u - 1.5)); UXMIN = Math.max(-100, -cx / u + 3); UXMAX = Math.min(100, (W - cx) / u - 3);
     var hr = nowH(), rain = isRaining(), lit = fireOn(hr);
     var night = hr < 5.5 || hr >= 18.5, dusk = (hr >= 17 && hr < 18.5) || (hr >= 5.5 && hr < 7);
     var players = getPlayers(), lvl = lvlFromN(players.length);
@@ -1435,10 +1531,19 @@ function drawBase(t) {
     }
 }
 
-setInterval(function () {
-    if (!gameStarted || document.hidden || $('map-overlay').classList.contains('show')) return;
-    drawBase(Date.now());
-}, 120);
+var lastFrame = 0;
+function frame() { // desenha mais rápido enquanto você anda; se o aparelho for fraco, se adapta sozinho
+    var t0 = Date.now(), cost = 0;
+    FDT = lastFrame ? Math.min(0.25, (t0 - lastFrame) / 1000) : 0.12; lastFrame = t0;
+    if (gameStarted && !document.hidden && !$('map-overlay').classList.contains('show')) {
+        stepSelf(FDT);
+        drawBase(t0);
+        cost = Date.now() - t0;
+    }
+    var busy = MAN.moving || inputVec().m > 0.05;
+    setTimeout(frame, Math.max(busy ? 40 : 110, cost * 1.5));
+}
+frame();
 
 // =====================================================
 //  LOOP DO JOGO E INTERFACE

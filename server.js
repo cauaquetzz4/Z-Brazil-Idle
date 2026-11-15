@@ -224,6 +224,22 @@ const server = http.createServer((req, res) => {
         return;
     }
 
+    // Posição do boneco (só repassa para os outros da mesma base)
+    if (url === '/pos' && req.method === 'POST') {
+        readBody(req, (b) => {
+            const c = b && clients.get(String(b.id));
+            if (!c) { reply(res, 400, 'sem conexao'); return; }
+            const now = Date.now();
+            if (now - (c.lastPos || 0) < 60) { reply(res, 200, 'ok'); return; }
+            c.lastPos = now;
+            const x = Math.max(-110, Math.min(110, Number(b.x) || 0));
+            const y = Math.max(0, Math.min(40, Number(b.y) || 0));
+            clients.forEach((o) => { if (o.uf === c.uf && o.id !== c.id) send(o.res, 'pos', { id: c.id, x: x, y: y }); });
+            reply(res, 200, 'ok');
+        });
+        return;
+    }
+
     // Ações do jogador (viram notícias na base)
     if (url === '/act' && req.method === 'POST') {
         readBody(req, (b) => {
