@@ -1,13 +1,14 @@
-// Servidor do Z-Brasil v4 — sem dependências (só precisa do Node.js)
-// Uso:  node server.js    (deixe na mesma pasta do z-brasil-base.html)
+// Servidor do Z-Brasil: Aldeia — sem dependências (só precisa do Node.js)
+// Uso:  node server.js    (deixe na mesma pasta do z-brasil-aldeia.html)
 //
 // O que ele faz:
-//  - cada estado do Brasil é uma BASE: jogadores do mesmo estado aparecem juntos
-//  - cada jogador tem os SEUS recursos (comida, água, sucata, defesa, prata)
-//  - cada base tem um TOTAL (a soma dos jogadores daquela base) que só os jogadores
-//    daquela base recebem (o total do RJ só aparece para quem está na base do RJ)
-//  - notícias (logs) online da base, chat da base e chat do Brasil
-//  - o médico cura todos da base
+//  - guarda uma "foto" da aldeia de cada jogador (para os outros poderem atacar)
+//  - acha um oponente para quem quer atacar (jogador online, off-line também vale, como no Clash of Clans)
+//  - recebe o resultado do ataque, confere os números, tira o saque da vítima e dá escudo a ela
+//  - avisa a vítima do que aconteceu (ela recebe na próxima vez que o jogo dela falar com o servidor)
+//
+// Variáveis opcionais:  PORT=3000   DATA_FILE=perfis.json
+// Os recursos de cada jogador ficam no aparelho dele; o servidor só confere e limita o saque.
 
 const http = require('http');
 const fs = require('fs');
@@ -15,122 +16,49 @@ const path = require('path');
 const os = require('os');
 
 const PORT = process.env.PORT || 3000;
-const GAME_FILE = path.join(__dirname, 'z-brasil-base.html');
+const GAME_FILE = path.join(__dirname, 'z-brasil-aldeia.html');
+const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'perfis.json');
 
-const UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
-const JOBS = ['coletador', 'barricada', 'guarda', 'medico'];
-const ITEM_NAMES = { racao: 'Ração', kit: 'Kit médico', reforco: 'Reforço', bastao: 'Bastão dourado' };
+const RES = ['food', 'water', 'scrap'];
 const BAD = [
     'pau','pinto','bunda','vagina','penis','buceta','caralho',
     'droga','maconha','cocaina','crack','lança','arma','fuzil',
     'pistola','oitão','assassinar','matar','biqueira','trafico'
 ];
 
-const clients = new Map();   // id -> { id, name, uf, shirt, job, stats, res, lastChat, lastAct }
-const rooms = {};            // uf -> { log: [] }
-const baseChat = {};         // uf -> []
-const globalChat = [];
-const lastLeft = {};         // id -> timestamp (para não repetir "bem-vindo" em reconexão)
+let profiles = {};   // id -> perfil
+let dirty = false;
+try {
+    profiles = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    console.log('Perfis carregados: ' + Object.keys(profiles).length);
+} catch (e) { /* primeira vez */ }
+
+function saveProfiles() {
+    if (!dirty) return;
+    dirty = false;
+    fs.writeFile(DATA_FILE, JSON.stringify(profiles), () => {});
+}
+setInterval(saveProfiles, 30000);
+process.on('SIGTERM', () => { try { fs.writeFileSync(DATA_FILE, JSON.stringify(profiles)); } catch (e) { /* ignora */ } process.exit(0); });
 
 // ---------- utilidades ----------
-function clean(s, max) {
-    return String(s == null ? '' : s).replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max);
-}
-function esc(w) { return w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
-function maskBad(text) {
-    let t = text;
-    BAD.forEach((w) => {
-        const re = new RegExp('(^|[^a-zà-ú])(' + esc(w) + ')(?=$|[^a-zà-ú])', 'gi');
-        t = t.replace(re, (m, pre, word) => pre + '*'.repeat(word.length));
-    });
-    return t;
-}
-function nameHasBad(n) {
-    const l = n.toLowerCase();
-    return BAD.some((w) => l.includes(w));
-}
-function room(uf) {
-    if (!rooms[uf]) rooms[uf] = { log: [] };
-    if (!baseChat[uf]) baseChat[uf] = [];
-    return rooms[uf];
-}
-function send(res, event, data) {
-    try { res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n'); } catch (e) { /* conexão caiu */ }
-}
-function playersOf(uf) {
-    const a = [];
-    clients.forEach((c) => {
-        if (c.uf === uf) a.push({ id: c.id, name: c.name, shirt: c.shirt, job: c.job, gb: c.stats ? c.stats.gb : 0 });
-    });
-    return a;
-}
-function counts() {
-    const o = {};
-    clients.forEach((c) => { o[c.uf] = (o[c.uf] || 0) + 1; });
-    return o;
-}
-function toRoom(uf, event, data) {
-    clients.forEach((c) => { if (c.uf === uf) send(c.res, event, data); });
-}
-function toAll(event, data) {
-    clients.forEach((c) => send(c.res, event, data));
-}
-
-// total da base = soma dos recursos dos jogadores daquela base (só quem é da base recebe)
-function totalsOf(uf) {
-    const t = { food: 0, water: 0, scrap: 0, defense: 0, silver: 0, players: 0 };
-    clients.forEach((c) => {
-        if (c.uf !== uf) return;
-        t.players++;
-        if (c.stats) {
-            t.food += c.stats.food; t.water += c.stats.water; t.scrap += c.stats.scrap;
-            t.defense += c.stats.defense; t.silver += c.stats.silver;
-        }
-    });
-    return t;
-}
-const totalsTimers = {};
-function scheduleTotals(uf) {
-    if (totalsTimers[uf]) return;
-    totalsTimers[uf] = setTimeout(() => { delete totalsTimers[uf]; toRoom(uf, 'totals', totalsOf(uf)); }, 700);
-}
-let countsTimer = null;
-function scheduleCounts() {
-    if (countsTimer) return;
-    countsTimer = setTimeout(() => { countsTimer = null; toAll('counts', counts()); }, 500);
-}
-function addLog(uf, text) {
-    const r = room(uf);
-    const entry = { t: Date.now(), text: text };
-    r.log.push(entry);
-    if (r.log.length > 40) r.log.shift();
-    toRoom(uf, 'log', entry);
-}
-function pickShirt(uf, id, want) {
-    const used = [];
-    clients.forEach((c) => { if (c.uf === uf && c.id !== id) used.push(c.shirt); });
-    let h = ((parseInt(want, 10) || 0) % 360 + 360) % 360;
-    for (let i = 0; i < 24; i++) {
-        const ok = used.every((u) => { let d = Math.abs(u - h); d = Math.min(d, 360 - d); return d >= 18; });
-        if (ok) return h;
-        h = (h + 23) % 360;
+function num(v, max) { v = Math.floor(Number(v)); if (!isFinite(v) || v < 0) return 0; return Math.min(v, max); }
+function clean(s, max) { return String(s == null ? '' : s).replace(/[\u0000-\u001f<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, max); }
+function nameOk(n) { const l = n.toLowerCase(); return n.length >= 2 && !BAD.some((w) => l.includes(w)); }
+function idOk(id) { return /^[a-f0-9]{8,32}$/i.test(String(id || '')); }
+function cleanBase(arr) {
+    if (!Array.isArray(arr) || arr.length > 260) return null;
+    const out = [];
+    for (const e of arr) {
+        if (!Array.isArray(e) || e.length < 4) return null;
+        const t = num(e[0], 20), l = num(e[1], 5), x = num(e[2], 29), y = num(e[3], 29);
+        if (t > 7 || l < 1) return null;
+        out.push([t, l, x, y]);
     }
-    return ((parseInt(want, 10) || 0) % 360 + 360) % 360;
+    return out;
 }
-function jobText(job, name) {
-    switch (job) {
-        case 'guarda': return '🛡️ ' + name + ' está de guarda pra proteger a base dos zumbis!';
-        case 'coletador': return '🌾 ' + name + ' está catando alimentos e sucatas!';
-        case 'barricada': return '🔨 ' + name + ' montou barricadas!';
-        case 'medico': return '🩺 ' + name + ' regenerou o HP de todos!';
-    }
-    return null;
-}
-function num(v, max) {
-    v = Math.floor(Number(v));
-    if (!isFinite(v) || v < 0) return 0;
-    return Math.min(v, max);
-}
+function cleanRes(r) { const o = {}; RES.forEach((k) => { o[k] = num(r && r[k], 99999); }); return o; }
+function cleanTroops(t) { return { zombie: num(t && t.zombie, 200), spitter: num(t && t.spitter, 200), tank: num(t && t.tank, 200) }; }
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -139,201 +67,111 @@ const CORS = {
 };
 function readBody(req, cb) {
     let b = '';
-    req.on('data', (d) => { b += d; if (b.length > 4096) req.destroy(); });
+    req.on('data', (d) => { b += d; if (b.length > 40000) req.destroy(); });
     req.on('end', () => { try { cb(JSON.parse(b || '{}')); } catch (e) { cb(null); } });
 }
-function reply(res, code, txt) {
+function json(res, code, obj) {
+    res.writeHead(code, Object.assign({ 'Content-Type': 'application/json; charset=utf-8' }, CORS));
+    res.end(JSON.stringify(obj));
+}
+function text(res, code, t) {
     res.writeHead(code, Object.assign({ 'Content-Type': 'text/plain; charset=utf-8' }, CORS));
-    res.end(txt || '');
+    res.end(t || '');
 }
 
 // ---------- servidor ----------
 const server = http.createServer((req, res) => {
-    const u = new URL(req.url, 'http://x');
-    const url = u.pathname;
+    const url = new URL(req.url, 'http://x').pathname;
+    if (req.method === 'OPTIONS') { text(res, 204); return; }
 
-    if (req.method === 'OPTIONS') { reply(res, 204); return; }
-
-    // Canal em tempo real
-    if (url === '/events') {
-        const id = u.searchParams.get('id') || '';
-        const uf = (u.searchParams.get('uf') || '').toUpperCase();
-        let name = clean(u.searchParams.get('name'), 15);
-        if (!/^[a-f0-9]{8,32}$/i.test(id) || UFS.indexOf(uf) < 0) { reply(res, 400, 'dados invalidos'); return; }
-        if (name.length < 2 || nameHasBad(name)) name = 'Sobrevivente';
-
-        const prev = clients.get(id);
-        if (prev) { try { prev.res.end(); } catch (e) { /* ignora */ } clients.delete(id); scheduleTotals(prev.uf); }
-
-        req.socket.setTimeout(0);
-        res.writeHead(200, Object.assign({
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-            'X-Accel-Buffering': 'no'
-        }, CORS));
-        res.write('retry: 3000\n\n');
-
-        const shirt = pickShirt(uf, id, u.searchParams.get('shirt'));
-        const c = { id: id, name: name, uf: uf, shirt: shirt, job: '', stats: null, res: res, lastChat: 0, lastAct: 0, lastJobLog: 0 };
-        clients.set(id, c);
-        const r = room(uf);
-
-        send(res, 'init', {
-            you: { shirt: shirt, name: name },
-            players: playersOf(uf),
-            log: r.log,
-            chat: baseChat[uf],
-            gchat: globalChat,
-            counts: counts(),
-            totals: totalsOf(uf)
-        });
-
-        const fresh = !lastLeft[id] || Date.now() - lastLeft[id] > 60000;
-        if (fresh) addLog(uf, '👋 Seja bem-vindo à base, ' + name + '!');
-        toRoom(uf, 'players', playersOf(uf));
-        scheduleCounts();
-        scheduleTotals(uf);
-
-        req.on('close', () => {
-            if (clients.get(id) === c) {
-                clients.delete(id);
-                lastLeft[id] = Date.now();
-                toRoom(uf, 'players', playersOf(uf));
-                scheduleCounts();
-                scheduleTotals(uf);
-            }
-        });
-        return;
-    }
-
-    // Recursos do jogador (o servidor soma e manda o total só para a base dele)
-    if (url === '/stats' && req.method === 'POST') {
+    // O jogador manda a foto da aldeia e recebe o que aconteceu com ela
+    if (url === '/api/sync' && req.method === 'POST') {
         readBody(req, (b) => {
-            const c = b && clients.get(String(b.id));
-            if (!c) { reply(res, 400, 'sem conexao'); return; }
-            const old = c.stats ? c.stats.gb : 0;
-            c.stats = {
-                food: num(b.food, 99999), water: num(b.water, 99999), scrap: num(b.scrap, 99999),
-                defense: num(b.defense, 99999), silver: num(b.silver, 99999), gb: b.gb ? 1 : 0
-            };
-            if (c.stats.gb !== old) toRoom(c.uf, 'players', playersOf(c.uf));
-            scheduleTotals(c.uf);
-            reply(res, 200, 'ok');
-        });
-        return;
-    }
-
-    // Posição do boneco (só repassa para os outros da mesma base)
-    if (url === '/pos' && req.method === 'POST') {
-        readBody(req, (b) => {
-            const c = b && clients.get(String(b.id));
-            if (!c) { reply(res, 400, 'sem conexao'); return; }
+            if (!b || !idOk(b.id)) { json(res, 400, { ok: false }); return; }
             const now = Date.now();
-            if (now - (c.lastPos || 0) < 60) { reply(res, 200, 'ok'); return; }
-            c.lastPos = now;
-            const x = Math.max(-110, Math.min(110, Number(b.x) || 0));
-            const y = Math.max(0, Math.min(40, Number(b.y) || 0));
-            clients.forEach((o) => { if (o.uf === c.uf && o.id !== c.id) send(o.res, 'pos', { id: c.id, x: x, y: y }); });
-            reply(res, 200, 'ok');
+            let p = profiles[b.id];
+            const fresh = !p;
+            if (!p) p = profiles[b.id] = { id: b.id, shield: now + 12 * 3600 * 1000, pendT: 0, pendLoss: { food: 0, water: 0, scrap: 0 }, logs: [], base: [], lastAtk: 0 };
+            let name = clean(b.name, 15);
+            if (!nameOk(name)) name = 'Sobrevivente';
+            p.name = name;
+            p.seen = now;
+            p.trophies = num(b.trophies, 99999);
+            p.res = cleanRes(b.res);
+            p.troops = cleanTroops(b.troops);
+            p.lvl = Math.max(1, Math.min(4, num(b.lvl, 4)));
+            if (b.base) { const cb = cleanBase(b.base); if (cb) p.base = cb; }
+            const out = { ok: true, fresh: fresh, shield: p.shield, loss: p.pendLoss, tdelta: p.pendT, logs: p.logs };
+            p.trophies = Math.max(0, p.trophies + p.pendT);
+            p.pendLoss = { food: 0, water: 0, scrap: 0 }; p.pendT = 0; p.logs = [];
+            dirty = true;
+            json(res, 200, out);
         });
         return;
     }
 
-    // Ações do jogador (viram notícias na base)
-    if (url === '/act' && req.method === 'POST') {
+    // Procurar um oponente
+    if (url === '/api/search' && req.method === 'POST') {
         readBody(req, (b) => {
-            const c = b && clients.get(String(b.id));
-            if (!c) { reply(res, 400, 'sem conexao'); return; }
+            const me = b && profiles[b.id];
+            if (!me) { json(res, 400, { found: false }); return; }
             const now = Date.now();
-            if (b.type === 'sync' || b.type === 'job') {
-                const job = JOBS.indexOf(b.job) >= 0 ? b.job : '';
-                const changed = job !== c.job;
-                c.job = job;
-                if (b.type === 'job' && changed && job && now - c.lastJobLog > 3000) { addLog(c.uf, jobText(job, c.name)); c.lastJobLog = now; }
-                toRoom(c.uf, 'players', playersOf(c.uf));
-            } else if (b.type === 'action') {
-                if (now - c.lastAct < 20000) { reply(res, 429, 'calma'); return; }
-                c.lastAct = now;
-                const t = jobText(c.job, c.name);
-                if (t) addLog(c.uf, t);
-                if (c.job === 'medico') toRoom(c.uf, 'fx', { type: 'heal', by: c.id }); // cura todos da base
-            } else if (b.type === 'raid_ok') {
-                addLog(c.uf, '🛡️ As barricadas de ' + c.name + ' seguraram a horda!');
-            } else if (b.type === 'raid_fail') {
-                addLog(c.uf, '🚨 A horda invadiu a base de ' + c.name + '!');
-            } else if (b.type === 'trade_log') {
-                addLog(c.uf, '🥈 ' + c.name + ' trocou 10 sucatas por 5 moedas de prata com o trocador!');
-            } else if (b.type === 'buy_log' && ITEM_NAMES[b.item]) {
-                addLog(c.uf, '🛒 ' + c.name + ' comprou ' + ITEM_NAMES[b.item] + '!');
-            }
-            reply(res, 200, 'ok');
+            const pool = Object.keys(profiles).map((k) => profiles[k]).filter((p) =>
+                p.id !== me.id && p.base && p.base.length > 0 && p.shield < now && now - p.seen < 7 * 86400 * 1000 && (!b.skip || b.skip.indexOf(p.id) < 0));
+            if (!pool.length) { json(res, 200, { found: false }); return; }
+            pool.sort((x, y) => Math.abs(x.trophies - me.trophies) - Math.abs(y.trophies - me.trophies));
+            const p = pool[Math.floor(Math.random() * Math.min(5, pool.length))];
+            json(res, 200, { found: true, p: { id: p.id, name: p.name, trophies: p.trophies, lvl: p.lvl, base: p.base, troops: p.troops, res: p.res } });
         });
         return;
     }
 
-    // Chat
-    if (url === '/chat' && req.method === 'POST') {
+    // Resultado de um ataque
+    if (url === '/api/result' && req.method === 'POST') {
         readBody(req, (b) => {
-            const c = b && clients.get(String(b.id));
-            if (!c) { reply(res, 400, 'sem conexao'); return; }
+            const a = b && profiles[b.id], d = b && profiles[b.defId];
+            if (!a || !d || a.id === d.id) { json(res, 400, { ok: false }); return; }
             const now = Date.now();
-            if (now - c.lastChat < 1000) { reply(res, 429, 'calma'); return; }
-            const text = maskBad(clean(b.text, 140));
-            if (!text) { reply(res, 400, 'vazio'); return; }
-            c.lastChat = now;
-            const m = { id: c.id, n: c.name, uf: c.uf, h: c.shirt, t: now, text: text };
-            if (b.ch === 'brasil') {
-                globalChat.push(m); if (globalChat.length > 60) globalChat.shift();
-                toAll('chat', { ch: 'brasil', m: m });
-            } else {
-                room(c.uf);
-                baseChat[c.uf].push(m); if (baseChat[c.uf].length > 40) baseChat[c.uf].shift();
-                toRoom(c.uf, 'chat', { ch: 'base', m: m });
-            }
-            reply(res, 200, 'ok');
+            if (now - a.lastAtk < 15000) { json(res, 429, { ok: false, msg: 'Calma.' }); return; }
+            a.lastAtk = now;
+            const stars = num(b.stars, 3), destr = num(b.destruction, 100);
+            // o saque é no máximo 25% do que a vítima tinha, proporcional à destruição
+            const loot = {};
+            RES.forEach((k) => {
+                const allowed = Math.floor(d.res[k] * 0.25 * destr / 100) + 1;
+                loot[k] = Math.min(num(b.loot && b.loot[k], 99999), allowed, d.res[k]);
+                d.res[k] -= loot[k];
+                d.pendLoss[k] += loot[k];
+            });
+            const aT = stars > 0 ? 10 + stars * 8 : -8;
+            const dT = -stars * 6;
+            d.pendT += dT;
+            a.trophies = Math.max(0, a.trophies + aT);
+            a.shield = 0; // atacar quebra o seu escudo
+            if (destr >= 40) d.shield = now + 30 * 60 * 1000; // a vítima ganha 30 min de escudo
+            d.logs.push({ t: now, by: a.name, stars: stars, destr: destr, loot: loot });
+            if (d.logs.length > 20) d.logs.shift();
+            dirty = true;
+            json(res, 200, { ok: true, loot: loot, tdelta: aT });
         });
         return;
     }
 
-    // Batida de coração (mantém hospedagens grátis acordadas)
-    if (url === '/ping') { reply(res, 200, 'ok'); return; }
+    if (url === '/ping') { text(res, 200, 'ok'); return; }
 
-    // O jogo
     if (url === '/' || url === '/index.html') {
         fs.readFile(GAME_FILE, (err, data) => {
-            if (err) { reply(res, 500, 'Nao achei z-brasil-base.html na mesma pasta do server.js'); return; }
+            if (err) { text(res, 500, 'Nao achei z-brasil-aldeia.html na mesma pasta do server.js'); return; }
             res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
             res.end(data);
         });
         return;
     }
-
-    reply(res, 404, '404');
+    text(res, 404, '404');
 });
 
-// Mantém conexões vivas
-setInterval(() => { clients.forEach((c) => { try { c.res.write(': ping\n\n'); } catch (e) { /* ignora */ } }); }, 25000);
-
-// Avisos por horário de Brasília (UTC-3): 18:00 fogueira, 21:00 zumbis
-let lastKey = '';
-setInterval(() => {
-    const d = new Date(Date.now() - 3 * 3600 * 1000);
-    const h = d.getUTCHours(), m = d.getUTCMinutes();
-    const key = d.toISOString().slice(0, 10) + '-' + h;
-    if (m === 0 && (h === 18 || h === 21) && key !== lastKey) {
-        lastKey = key;
-        const text = h === 18
-            ? '🔥 18:00 — A fogueira foi acesa e os grilos começaram a cantar.'
-            : '🧟 21:00 — Quatro zumbis apareceram ao redor da base!';
-        const active = {};
-        clients.forEach((c) => { active[c.uf] = true; });
-        Object.keys(active).forEach((uf) => addLog(uf, text));
-    }
-}, 20000);
-
 server.listen(PORT, '0.0.0.0', () => {
-    console.log('Z-Brasil rodando!');
+    console.log('Z-Brasil: Aldeia rodando!');
     console.log('  Neste computador:  http://localhost:' + PORT);
     const nets = os.networkInterfaces();
     Object.keys(nets).forEach((name) => {

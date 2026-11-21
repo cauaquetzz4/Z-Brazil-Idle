@@ -3,1585 +3,1589 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Z-Brasil</title>
+<title>Z-Brasil: Aldeia</title>
 <style>
-    html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#121212; color:#e0e0e0; font-family:'Courier New', Courier, monospace; }
-    #app { position:fixed; top:0; left:0; right:0; bottom:0; }
-    button { font-family:inherit; }
+    html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#16210f; color:#fff; font-family:system-ui, Arial, sans-serif; -webkit-user-select:none; user-select:none; }
+    #c { position:fixed; left:0; top:0; width:100%; height:100%; display:block; touch-action:none; }
+    button { font-family:inherit; cursor:pointer; }
 
-    /* ---------- BASE 2D ---------- */
-    #base-view { position:absolute; top:0; left:0; right:0; bottom:0; background:#000; overflow:hidden; }
-    #base-canvas { width:100%; height:100%; display:block; }
-    #hud { position:absolute; top:6px; left:8px; right:8px; pointer-events:none; font-size:12px; text-shadow:1px 1px 2px #000; }
-    #hud .row { display:flex; justify-content:space-between; align-items:flex-start; }
-    #hud-res { margin-top:3px; color:#ffe082; }
-    #player-tag { color:#64b5f6; font-weight:bold; }
-    #clock { color:#ffb74d; font-weight:bold; }
-    #sound-btn { pointer-events:auto; background:rgba(0,0,0,.55); color:#fff; border:1px solid #666; border-radius:6px; padding:2px 7px; font-size:14px; cursor:pointer; }
-    #hud-wx { color:#81d4fa; }
+    #top { position:fixed; left:0; right:0; top:0; display:flex; flex-wrap:wrap; gap:6px; padding:6px; pointer-events:none; z-index:5; }
+    .chip { pointer-events:auto; background:rgba(20,28,14,.82); border:2px solid #3b4a2a; border-radius:18px; padding:3px 10px 3px 6px; font-size:14px; font-weight:bold; display:flex; align-items:center; gap:6px; text-shadow:1px 1px 0 #000; }
+    .dot { width:14px; height:14px; border-radius:50%; display:inline-block; border:2px solid rgba(0,0,0,.45); }
+    .dot.food { background:#ff9800; } .dot.water { background:#29b6f6; } .dot.scrap { background:#b0bec5; } .dot.bld { background:#a1887f; border-radius:3px; } .dot.cup { background:#ffd54f; border-radius:3px; }
+    #who { margin-left:auto; color:#c5e1a5; }
+    #badge { display:none; background:#e53935; border-radius:9px; padding:0 6px; font-size:11px; margin-left:4px; }
+    #chat-body { height:46vh; }
+    .cmsg { padding:3px 0; font-size:13px; word-wrap:break-word; }
+    .cmsg b { color:#ffcc80; } .cmsg i { color:#78909c; font-style:normal; font-size:11px; }
+    #next { font-size:12px; color:#ffcc80; width:100%; text-shadow:1px 1px 0 #000; pointer-events:none; }
 
-    /* ---------- MENU ARRASTÁVEL ---------- */
-    #sheet { display:none; position:absolute; background:#1a1a1a; border:2px solid #4caf50; flex-direction:column; box-sizing:border-box; z-index:20; }
-    #sheet.open { display:flex; }
-    #sheet-head { height:44px; flex:none; background:#222; display:flex; align-items:center; gap:12px; padding:0 8px; color:#a5d6a7; font-size:14px; font-weight:bold; }
-    #back-btn { background:#2e7d32; color:#fff; border:none; border-radius:6px; padding:8px 12px; font-size:14px; font-weight:bold; cursor:pointer; }
-    /* celular em pé: menu na metade de baixo | deitado/PC: menu na metade da direita */
-    @media (orientation:portrait) {
-        #sheet { left:0; right:0; bottom:0; height:50%; }
-        body.menu-open #base-view { bottom:50%; }
-    }
-    @media (orientation:landscape) {
-        #sheet { top:0; right:0; bottom:0; width:50%; }
-        body.menu-open #base-view { right:50%; }
-    }
-    #menu-btn { position:fixed; left:0; top:84px; z-index:900; background:#1b5e20; color:#fff; border:2px solid #4caf50; border-left:none; border-radius:0 10px 10px 0; padding:8px 10px; font-size:18px; cursor:pointer; }
-    #joy { display:none; position:absolute; left:16px; bottom:16px; width:124px; height:124px; border-radius:50%; background:rgba(255,255,255,.12); border:2px solid rgba(255,255,255,.35); z-index:15; touch-action:none; }
-    body.touch #joy { display:block; }
-    #joy-knob { position:absolute; left:34px; top:34px; width:52px; height:52px; border-radius:50%; background:rgba(255,255,255,.55); pointer-events:none; }
-    #fs-btn { pointer-events:auto; background:rgba(0,0,0,.55); color:#fff; border:1px solid #666; border-radius:6px; padding:2px 7px; font-size:14px; cursor:pointer; }
-    #sheet-body { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:10px 14px 30px; }
+    /* barra de baixo: Loja e Atacar no canto */
+    #bar { position:fixed; left:0; right:0; bottom:0; display:flex; justify-content:space-between; align-items:flex-end; padding:8px; z-index:5; pointer-events:none; }
+    #bar .grp { display:flex; gap:8px; pointer-events:auto; flex-wrap:wrap; align-items:flex-end; }
+    .btn { background:linear-gradient(#66bb6a,#2e7d32); color:#fff; border:2px solid #1b5e20; border-radius:10px; padding:10px 14px; font-size:14px; font-weight:bold; text-shadow:1px 1px 0 #1b5e20; box-shadow:0 3px 0 #1b3d1c; }
+    .btn.alt { background:linear-gradient(#78909c,#455a64); border-color:#263238; box-shadow:0 3px 0 #1c262b; text-shadow:1px 1px 0 #263238; }
+    .btn.red { background:linear-gradient(#ef5350,#b71c1c); border-color:#7f0000; box-shadow:0 3px 0 #5a0000; text-shadow:1px 1px 0 #7f0000; }
+    .btn.gold { background:linear-gradient(#ffca28,#f57f17); border-color:#8d4e00; box-shadow:0 3px 0 #6b3b00; text-shadow:1px 1px 0 #8d4e00; }
+    .btn.sm { padding:7px 10px; font-size:13px; }
+    .btn:disabled { opacity:.45; filter:grayscale(.6); }
+    .ibtn { display:flex; flex-direction:column; align-items:center; gap:1px; width:78px; padding:7px 4px 6px; font-size:13px; }
+    .ibtn svg { width:30px; height:30px; }
+    #zoom { position:fixed; right:8px; top:46%; display:flex; flex-direction:column; gap:8px; z-index:5; }
+    #zoom .btn { width:44px; padding:8px 0; font-size:20px; }
 
-    .bars { background:#222; padding:10px 12px; border-radius:4px; font-size:12px; }
-    .bar { display:flex; align-items:center; gap:8px; margin:5px 0; }
-    .bar span { width:78px; flex:none; }
-    .bar b { width:34px; text-align:right; flex:none; }
-    .track { flex:1; height:9px; background:#111; border-radius:5px; overflow:hidden; }
-    .fill { height:100%; width:0; border-radius:5px; }
-    .fill.hp { background:#e53935; } .fill.def { background:#42a5f5; } .fill.food { background:#ffa726; } .fill.water { background:#26c6da; }
-    .tot-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; }
-    .tot-grid span { background:#1d1d1d; padding:7px 4px; border-radius:4px; text-align:center; font-size:12px; }
-    .chips { display:flex; gap:8px; margin:8px 0; }
-    .chips span { flex:1; background:#222; padding:8px; border-radius:4px; text-align:center; font-size:13px; }
+    #sel, #place { position:fixed; left:50%; transform:translateX(-50%); bottom:96px; width:94%; max-width:460px; background:rgba(22,30,16,.94); border:2px solid #4caf50; border-radius:12px; padding:10px 12px; z-index:6; display:none; font-size:14px; box-sizing:border-box; }
+    #place { border-color:#ffb300; text-align:center; width:auto; max-width:94%; }
+    #sel h3 { margin:0 0 4px; font-size:16px; color:#c5e1a5; }
+    #sel .info { color:#dcedc8; margin:3px 0; }
+    .acts { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    #place .acts { justify-content:center; }
+    .need { color:#ff8a80; }
 
-    .box { background:#252525; padding:12px; margin:10px 0; font-size:13px; border-left:3px solid #2196f3; border-radius:3px; }
-    .box.base { border-left-color:#ff9800; }
-    .box.trader { border-left-color:#bdbdbd; }
-    .jobs { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px; }
-    .job { background:#2f2f2f; color:#ddd; border:2px solid #444; border-radius:6px; padding:8px 6px; font-size:12px; cursor:pointer; text-align:center; }
-    .job small { display:block; color:#999; margin-top:2px; }
-    .job.sel { border-color:#4caf50; background:#1f3a22; color:#fff; }
-    .btn-sm { background:#2196f3; color:#fff; border:none; padding:4px 10px; cursor:pointer; border-radius:3px; }
-    .btn-main { display:block; width:100%; background:#2e7d32; color:#fff; border:none; padding:12px; margin:8px 0; font-size:14px; cursor:pointer; border-radius:3px; font-weight:bold; }
-    .btn-alt { background:#455a64; }
-    .item-row { display:flex; justify-content:space-between; align-items:center; margin:7px 0; gap:6px; }
-    .item-row small { color:#999; display:block; }
-    #news-panel { background:#111; border:1px solid #444; padding:8px; margin-top:8px; height:150px; overflow-y:auto; font-size:12px; color:#a5d6a7; border-radius:3px; }
-    #news-panel div { margin-bottom:3px; }
-    details { margin:10px 0; font-size:12px; color:#999; }
-    details button { margin:3px 2px; }
+    #wave { position:fixed; left:50%; transform:translateX(-50%); top:64px; background:rgba(120,10,10,.9); border:2px solid #ff5252; border-radius:12px; padding:6px 14px; z-index:6; display:none; font-weight:bold; text-align:center; }
 
-    /* ---------- CHAT ---------- */
-    #chat-btn { position:fixed; left:0; top:136px; z-index:900; background:#1b5e20; color:#fff; border:2px solid #4caf50; border-left:none; border-radius:0 10px 10px 0; padding:10px 8px; font-size:18px; cursor:pointer; }
-    #chat-badge { display:none; position:absolute; top:-6px; right:-6px; background:#e53935; color:#fff; border-radius:9px; font-size:11px; padding:1px 5px; }
-    #chat-panel { display:none; position:fixed; left:0; top:8%; width:90%; max-width:340px; height:55%; background:#161616; border:2px solid #4caf50; border-left:none; border-radius:0 10px 10px 0; z-index:950; flex-direction:column; }
-    #chat-panel.show { display:flex; }
-    #chat-head { display:flex; gap:4px; padding:6px; background:#222; border-radius:0 8px 0 0; }
-    #chat-head button { flex:1; background:#333; color:#ccc; border:none; padding:7px; border-radius:4px; cursor:pointer; }
-    #chat-head button.sel { background:#2e7d32; color:#fff; }
-    #chat-head .x { flex:none; width:36px; background:#7a2b2b; color:#fff; }
-    #chat-msgs { flex:1; overflow-y:auto; padding:8px; font-size:12px; word-wrap:break-word; }
-    .cm { margin-bottom:5px; color:#ddd; }
-    .cm.sys { color:#999; font-style:italic; }
-    #chat-form { display:flex; gap:4px; padding:6px; background:#222; }
-    #chat-input { flex:1; padding:8px; background:#2b2b2b; border:1px solid #444; color:#fff; font-family:inherit; border-radius:4px; min-width:0; }
-    #chat-form button { background:#2e7d32; color:#fff; border:none; border-radius:4px; padding:0 14px; cursor:pointer; }
+    /* batalha */
+    #bhud { position:fixed; left:0; right:0; top:0; display:none; justify-content:space-between; align-items:center; padding:8px; z-index:7; pointer-events:none; gap:8px; flex-wrap:wrap; }
+    #bhud .box2 { pointer-events:auto; background:rgba(20,28,14,.88); border:2px solid #b71c1c; border-radius:12px; padding:6px 12px; font-weight:bold; text-shadow:1px 1px 0 #000; font-size:14px; }
+    #bhud .btns { pointer-events:auto; display:flex; gap:6px; }
+    #troops { position:fixed; left:0; right:0; bottom:0; display:none; justify-content:center; gap:8px; padding:8px; z-index:7; flex-wrap:wrap; }
+    .tcard { background:rgba(22,30,16,.92); border:3px solid #3b4a2a; border-radius:10px; width:84px; padding:6px 4px; text-align:center; font-size:12px; font-weight:bold; cursor:pointer; }
+    .tcard.sel { border-color:#ffd54f; background:rgba(60,50,10,.95); }
+    .tcard.empty { opacity:.4; }
+    .tcard canvas { width:44px; height:44px; display:block; margin:0 auto 2px; }
 
-    /* ---------- TELAS CHEIAS ---------- */
-    .overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(10,10,10,0.96); z-index:1000; flex-direction:column; justify-content:center; align-items:center; text-align:center; }
-    .overlay.show { display:flex; }
-    .card { background:#1e1e1e; padding:22px; border:2px solid #4caf50; border-radius:8px; max-width:420px; width:90%; box-sizing:border-box; }
-    .input-name, select { width:85%; padding:10px; margin:8px 0; background:#2b2b2b; border:1px solid #444; color:#fff; font-family:inherit; text-align:center; }
-    #map-canvas { background:#0d2233; border:2px solid #4caf50; border-radius:4px; max-width:100%; }
-    #map-info { font-size:12px; color:#ffe082; margin:6px 10px; min-height:30px; max-width:640px; }
-    #map-status { font-size:11px; color:#999; }
-    .map-btns { display:flex; gap:8px; width:90%; max-width:400px; }
-    #loc-msg { font-size:12px; color:#ffb74d; min-height:16px; }
-    #toast { position:fixed; top:64px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.88); color:#fff; padding:8px 12px; border-radius:6px; font-size:12px; z-index:1200; display:none; max-width:90%; text-align:center; }
+    .modal { position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,.72); z-index:20; display:none; align-items:center; justify-content:center; }
+    .modal.show { display:flex; }
+    .box { background:#1d2a14; border:2px solid #4caf50; border-radius:12px; width:94%; max-width:520px; max-height:86%; display:flex; flex-direction:column; }
+    .box h2 { margin:0; padding:10px 14px; font-size:18px; background:#2c4020; border-radius:10px 10px 0 0; color:#c5e1a5; display:flex; justify-content:space-between; align-items:center; }
+    .box .body { padding:10px 14px; overflow-y:auto; }
+    .item { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid #35502a; }
+    .item .t { flex:1; } .item b { color:#fff; } .item small { display:block; color:#aab99a; }
+    .logline { padding:4px 0; border-bottom:1px solid #2d4222; font-size:13px; color:#dcedc8; }
+    .bar2 { height:12px; background:#0f170a; border-radius:6px; overflow:hidden; margin:4px 0 8px; }
+    .bar2 i { display:block; height:100%; background:#66bb6a; }
+    #start .box { max-width:380px; text-align:center; padding:20px; }
+    #start input { width:85%; padding:10px; margin:12px 0; font-size:16px; text-align:center; background:#2b3a20; color:#fff; border:2px solid #4caf50; border-radius:8px; }
+    #toast { position:fixed; left:50%; top:96px; transform:translateX(-50%); background:rgba(0,0,0,.88); padding:8px 14px; border-radius:8px; font-size:13px; z-index:30; display:none; max-width:90%; text-align:center; }
+    .stars { font-size:34px; color:#ffd54f; letter-spacing:6px; text-align:center; margin:6px 0; }
+    .stars span.off { color:#4a4a3a; }
 </style>
 </head>
 <body>
 
+<canvas id="c"></canvas>
+
+<div id="top">
+    <div class="chip"><i class="dot food"></i><span id="r-food">0</span></div>
+    <div class="chip"><i class="dot water"></i><span id="r-water">0</span></div>
+    <div class="chip"><i class="dot scrap"></i><span id="r-scrap">0</span></div>
+    <div class="chip"><i class="dot bld"></i><span id="r-bld">0/0</span></div>
+    <div class="chip"><i class="dot cup"></i><span id="r-cup">0</span></div>
+    <div class="chip" id="who">-</div>
+    <div id="next"></div>
+</div>
+
+<div id="wave"><span id="wave-txt">Ataque!</span> <button class="btn sm alt" onclick="toggleSpeed()" id="speed-btn">Rápido</button></div>
+
+<div id="bhud">
+    <div class="box2" id="b-info">-</div>
+    <div class="box2" id="b-stat">-</div>
+    <div class="btns" id="b-btns"></div>
+</div>
+<div id="troops"></div>
+
+<div id="zoom">
+    <button class="btn alt" onclick="zoomBtn(1)">+</button>
+    <button class="btn alt" onclick="zoomBtn(-1)">&minus;</button>
+</div>
+
+<div id="sel"></div>
+<div id="place"><div id="place-txt"></div><div class="acts"><button class="btn sm" id="place-ok" onclick="confirmPlace()">Construir</button><button class="btn sm red" onclick="cancelPlace()">Cancelar</button></div></div>
+
+<div id="bar">
+    <div class="grp">
+        <button class="btn gold ibtn" onclick="openShop()">
+            <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h4l3.2 14h14L27 9H8"/><circle cx="12" cy="25.5" r="2" fill="#fff"/><circle cx="22.5" cy="25.5" r="2" fill="#fff"/></svg>
+            Loja</button>
+        <button class="btn red ibtn" onclick="openAttack()">
+            <svg viewBox="0 0 32 32" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5l15 15M27 5L12 20M5 5l5 1M5 5l1 5M27 5l-5 1M27 5l-1 5"/><path d="M18 22l5 5M14 22l-5 5" stroke-width="3.4"/></svg>
+            Atacar</button>
+    </div>
+    <div class="grp">
+        <button class="btn alt sm" onclick="openArmy()">Exército</button>
+        <button class="btn alt sm" onclick="collectAll()">Coletar tudo</button>
+        <button class="btn alt sm" onclick="openLog()">Diário</button>
+        <button class="btn alt sm" onclick="openChat()">Chat<span id="badge"></span></button>
+    </div>
+</div>
+
+<div class="modal" id="shop"><div class="box"><h2>Loja <button class="btn sm red" onclick="closeModals()">X</button></h2><div class="body" id="shop-body"></div></div></div>
+<div class="modal" id="log"><div class="box"><h2>Diário da aldeia <button class="btn sm red" onclick="closeModals()">X</button></h2><div class="body" id="log-body"></div></div></div>
+<div class="modal" id="army"><div class="box"><h2>Exército <button class="btn sm red" onclick="closeModals()">X</button></h2><div class="body" id="army-body"></div></div></div>
+<div class="modal" id="atk"><div class="box"><h2>Atacar <button class="btn sm red" onclick="closeModals()">X</button></h2><div class="body" id="atk-body"></div></div></div>
+<div class="modal" id="chat"><div class="box"><h2>Chat <button class="btn sm red" onclick="closeModals()">X</button></h2><div class="body" id="chat-body"></div>
+    <div style="display:flex;gap:6px;padding:8px"><input id="chat-in" maxlength="140" placeholder="Mensagem..." style="flex:1;padding:9px;background:#2b3a20;color:#fff;border:2px solid #4caf50;border-radius:8px;min-width:0"><button class="btn sm" onclick="sendChat()">Enviar</button></div></div></div>
+<div class="modal" id="result"><div class="box"><h2>Resultado do ataque</h2><div class="body" id="result-body"></div></div></div>
+<div class="modal show" id="start"><div class="box"><h2>Z-BRASIL: ALDEIA</h2>
+    <div style="margin-top:10px;color:#c5e1a5;">Construa sua aldeia, treine zumbis e ataque outras bases. Os bots atacam a sua a cada 90 minutos.</div>
+    <input id="name-in" maxlength="15" placeholder="Seu nome de sobrevivente">
+    <button class="btn" onclick="newGame()">Começar</button>
+</div></div>
 <div id="toast"></div>
-
-<!-- Início: nome e localização -->
-<div id="start-overlay" class="overlay">
-    <div class="card" id="step-name">
-        <h2 style="color:#4caf50; margin-top:0;">Z-BRASIL</h2>
-        <p style="margin-bottom:5px; font-size:14px;">Defina seu Codinome de Sobrevivente:</p>
-        <input type="text" id="username-input" class="input-name" placeholder="Ex: Capitao_Zero" maxlength="15">
-        <button class="btn-main" onclick="confirmUsername()">Continuar</button>
-    </div>
-    <div class="card" id="step-loc" style="display:none;">
-        <h3 style="color:#4caf50; margin-top:0;">📍 Sua base</h3>
-        <p style="font-size:12px; color:#aaa;">Cada lugar do Brasil tem uma base. Com a localização, você entra na base do seu estado e vê a chuva real do seu local. A localização fica só no seu aparelho: o servidor recebe apenas o estado.</p>
-        <button class="btn-main" onclick="useGps()">📍 Usar minha localização</button>
-        <div style="font-size:12px; color:#888;">ou escolha o estado:</div>
-        <select id="uf-select"></select>
-        <button class="btn-main btn-alt" onclick="useManualUf()">Entrar na base deste estado</button>
-        <div id="loc-msg"></div>
-    </div>
-</div>
-
-<!-- Mapa do Brasil -->
-<div id="map-overlay" class="overlay">
-    <div style="color:#4caf50; font-weight:bold; margin-bottom:6px;">🗺️ MAPA DO BRASIL — TEMPO AGORA</div>
-    <canvas id="map-canvas"></canvas>
-    <div id="map-info">Toque num estado para ver a base e o tempo.</div>
-    <div id="map-status"></div>
-    <div class="map-btns">
-        <button class="btn-main btn-alt" onclick="loadWeather(true)">🔄 Atualizar</button>
-        <button class="btn-main" onclick="closeMap()">Fechar</button>
-    </div>
-</div>
-
-<!-- Chat -->
-<button id="menu-btn" onclick="toggleMenu()">☰</button>
-<button id="chat-btn" onclick="toggleChat()">💬<span id="chat-badge"></span></button>
-<div id="chat-panel">
-    <div id="chat-head">
-        <button id="tab-base" class="sel" onclick="setChatCh('base')">Base</button>
-        <button id="tab-brasil" onclick="setChatCh('brasil')">Brasil</button>
-        <button class="x" onclick="toggleChat()">✕</button>
-    </div>
-    <div id="chat-msgs"></div>
-    <div id="chat-form">
-        <input id="chat-input" maxlength="140" placeholder="Mensagem...">
-        <button onclick="sendChat()">➤</button>
-    </div>
-</div>
-
-<div id="app">
-    <div id="base-view">
-        <canvas id="base-canvas"></canvas>
-        <div id="hud">
-            <div class="row">
-                <span>👤 <span id="player-tag">...</span> · <span id="hud-uf"></span></span>
-                <span>🕒 <span id="clock">00:00:00</span> <button id="fs-btn" onclick="goLandscape()">⛶</button> <button id="sound-btn" onclick="toggleSound()">🔊</button></span>
-            </div>
-            <div class="row">
-                <span id="hud-res"></span>
-                <span id="hud-wx"></span>
-            </div>
-            <div style="font-size:11px;color:#aaa;" id="save-state"></div>
-        </div>
-        <div id="joy"><div id="joy-knob"></div></div>
-    </div>
-
-    <div id="sheet">
-        <div id="sheet-head">
-            <button id="back-btn" onclick="closeMenu()">⬅ Voltar</button>
-            <span>Menu da base</span>
-        </div>
-        <div id="sheet-body">
-            <div style="font-size:12px; color:#ffcc80; margin-bottom:5px;">🎒 Seus recursos (só seus)</div>
-            <div class="bars">
-                <div class="bar"><span>❤️ Vida</span><div class="track"><div id="b-hp" class="fill hp"></div></div><b id="hp">100</b></div>
-                <div class="bar"><span>🛡️ Defesa</span><div class="track"><div id="b-def" class="fill def"></div></div><b id="defense">20</b></div>
-                <div class="bar"><span>🍖 Comida</span><div class="track"><div id="b-food" class="fill food"></div></div><b id="food">15</b></div>
-                <div class="bar"><span>🥤 Água</span><div class="track"><div id="b-water" class="fill water"></div></div><b id="water">15</b></div>
-            </div>
-            <div class="chips">
-                <span>💰 Sucata <b id="scrap">10</b></span>
-                <span>🥈 Prata <b id="silver">0</b></span>
-            </div>
-
-            <div class="box" style="border-left-color:#ffb300;">
-                <strong>📦 Total da base de <span id="tot-name">-</span></strong>
-                <div style="font-size:11px; color:#999; margin:3px 0 7px;">Soma dos recursos dos <b id="tot-n">1</b> jogador(es) desta base. Só quem está nesta base vê este total.</div>
-                <div class="tot-grid">
-                    <span>🍖 Comida<br><b id="tot-food">0</b></span>
-                    <span>🥤 Água<br><b id="tot-water">0</b></span>
-                    <span>💰 Sucata<br><b id="tot-scrap">0</b></span>
-                    <span>🛡️ Defesa<br><b id="tot-def">0</b></span>
-                    <span>🥈 Prata<br><b id="tot-silver">0</b></span>
-                </div>
-            </div>
-
-            <div class="box base">
-                <strong>🏕️ Base de <span id="base-name">-</span> — Nível <span id="lvl">1</span>: <span id="lvl-name">Barraca</span></strong>
-                <div style="margin-top:6px;">👥 Jogadores na base: <b id="bp">1</b> <span id="lvl-next" style="color:#aaa;"></span></div>
-                <div style="margin-top:4px;" id="online-line"></div>
-                <div style="display:flex; gap:8px; margin-top:8px;">
-                    <button class="btn-sm" style="flex:1; padding:8px;" onclick="openMap()">🗺️ Mapa do Brasil</button>
-                    <button class="btn-sm" style="flex:1; padding:8px; background:#455a64;" onclick="openLocation()">📍 Mudar local</button>
-                </div>
-            </div>
-
-            <div class="box">
-                <strong>Escolha seu emprego na base:</strong>
-                <div class="jobs" id="jobs"></div>
-                <div id="job-info" style="margin-top:8px; font-size:12px; color:#aaa;"></div>
-            </div>
-
-            <button class="btn-main" onclick="clickScrap()">⚙️ Procurar Sucatas (+1)</button>
-
-            <div class="box trader" id="trader-box"></div>
-
-            <div class="box" style="border-left-color:#4caf50;">
-                <strong>📰 Notícias da base (online)</strong>
-                <div id="news-panel"></div>
-            </div>
-        </div>
-    </div>
-</div>
 
 <script>
 // =====================================================
 //  CONFIGURAÇÃO
 // =====================================================
-// Se abrir o jogo pelo servidor (http://IP:3000 ou o endereço da hospedagem), conecta sozinho.
+// Abrindo o jogo pelo servidor (http://IP:3000 ou o endereço da hospedagem) ele conecta sozinho.
 // Se o jogo estiver em outro lugar, escreva aqui o endereço do servidor.
 var SERVER_URL_MANUAL = "";
-var SERVER_URL = SERVER_URL_MANUAL ||
-    ((location.protocol === "http:" || location.protocol === "https:") ? location.origin : "");
+var SERVER_URL = SERVER_URL_MANUAL || ((location.protocol === "http:" || location.protocol === "https:") ? location.origin : "");
 
-var SAVE_KEY = "zbrasil_save2", OLD_KEY = "zbrasil_save", GEO_KEY = "zbrasil_geo1";
-var GEO_URL = "https://servicodados.ibge.gov.br/api/v3/malhas/paises/BR?formato=application/vnd.geo+json&qualidade=minima&intrarregiao=UF";
+var GRID = 30, LT = 48, LTT = 32;
+var SAVE_KEY = "zbrasil_aldeia2";
+var BOT_EVERY = 90 * 60 * 1000;   // os bots atacam a cada 90 minutos
+var TRIG = 6;                     // o bunker abre quando um inimigo chega a esta distância
+var BAD = ["pau","pinto","bunda","vagina","penis","buceta","caralho","droga","maconha","cocaina","crack","lança","arma","fuzil","pistola","oitão","assassinar","matar","biqueira","trafico"];
 
-var blacklistedWords = [
-    "pau","pinto","bunda","vagina","penis","buceta","caralho",
-    "droga","maconha","cocaina","crack","lança","arma","fuzil",
-    "pistola","oitão","assassinar","matar","biqueira","trafico"
-];
-
-function $(id) { return document.getElementById(id); }
-
-// =====================================================
-//  ESTADOS DO BRASIL
-// =====================================================
-var STATES = [
-    ["AC","Acre","12","Rio Branco",-9.97,-67.81],["AL","Alagoas","27","Maceió",-9.67,-35.74],
-    ["AP","Amapá","16","Macapá",0.03,-51.07],["AM","Amazonas","13","Manaus",-3.12,-60.02],
-    ["BA","Bahia","29","Salvador",-12.97,-38.51],["CE","Ceará","23","Fortaleza",-3.73,-38.53],
-    ["DF","Distrito Federal","53","Brasília",-15.79,-47.88],["ES","Espírito Santo","32","Vitória",-20.32,-40.34],
-    ["GO","Goiás","52","Goiânia",-16.68,-49.25],["MA","Maranhão","21","São Luís",-2.53,-44.30],
-    ["MT","Mato Grosso","51","Cuiabá",-15.60,-56.10],["MS","Mato Grosso do Sul","50","Campo Grande",-20.44,-54.65],
-    ["MG","Minas Gerais","31","Belo Horizonte",-19.92,-43.94],["PA","Pará","15","Belém",-1.46,-48.50],
-    ["PB","Paraíba","25","João Pessoa",-7.12,-34.86],["PR","Paraná","41","Curitiba",-25.43,-49.27],
-    ["PE","Pernambuco","26","Recife",-8.05,-34.88],["PI","Piauí","22","Teresina",-5.09,-42.80],
-    ["RJ","Rio de Janeiro","33","Rio de Janeiro",-22.91,-43.17],["RN","Rio Grande do Norte","24","Natal",-5.79,-35.21],
-    ["RS","Rio Grande do Sul","43","Porto Alegre",-30.03,-51.23],["RO","Rondônia","11","Porto Velho",-8.76,-63.90],
-    ["RR","Roraima","14","Boa Vista",2.82,-60.67],["SC","Santa Catarina","42","Florianópolis",-27.60,-48.55],
-    ["SP","São Paulo","35","São Paulo",-23.55,-46.63],["SE","Sergipe","28","Aracaju",-10.91,-37.07],
-    ["TO","Tocantins","17","Palmas",-10.18,-48.33]
-].map(function (a) { return { s: a[0], n: a[1], code: a[2], cap: a[3], lat: a[4], lon: a[5] }; });
-var stByUf = {}, stByCode = {};
-STATES.forEach(function (s) { stByUf[s.s] = s; stByCode[s.code] = s; });
-
-// Contorno aproximado do Brasil (só usado se o mapa dos estados não carregar)
-var BRAZIL = [
-    [-51.6,4.3],[-50.4,1.9],[-50.0,0.0],[-48.5,-1.0],[-46.5,-1.0],[-44.3,-2.3],[-42.0,-2.8],[-39.5,-3.0],
-    [-37.2,-4.8],[-35.2,-5.3],[-34.8,-7.0],[-35.2,-9.0],[-37.0,-11.0],[-38.5,-13.0],[-39.1,-16.0],[-39.7,-18.3],
-    [-40.5,-20.5],[-41.8,-22.9],[-43.2,-23.0],[-45.0,-23.5],[-46.8,-24.2],[-48.5,-25.8],[-48.5,-27.6],[-49.9,-29.3],
-    [-51.2,-31.0],[-52.6,-32.6],[-53.4,-33.7],[-55.0,-31.5],[-57.5,-30.2],[-56.0,-28.5],[-54.0,-27.2],[-53.7,-26.0],
-    [-54.6,-25.5],[-54.3,-24.0],[-55.5,-22.2],[-57.8,-22.0],[-57.9,-19.5],[-58.2,-17.6],[-60.0,-16.2],[-60.4,-14.0],
-    [-62.5,-12.5],[-65.3,-11.0],[-66.5,-9.9],[-69.5,-10.9],[-72.0,-9.8],[-73.2,-8.5],[-73.9,-7.4],[-72.5,-7.0],
-    [-70.0,-4.3],[-69.8,-1.0],[-69.5,0.6],[-67.0,1.8],[-67.4,2.3],[-65.0,1.5],[-64.0,2.5],[-63.5,3.9],[-62.8,4.1],
-    [-60.7,5.2],[-60.0,4.5],[-59.8,1.9],[-58.0,1.3],[-56.0,2.0],[-54.5,2.3],[-52.5,2.1]
-];
-
-// =====================================================
-//  ESTADO DO JOGADOR (salvo no aparelho)
-// =====================================================
-var me = { id: "", name: "", uf: "", lat: null, lon: null, shirt: 0 };
-var G = { job: "" };            // emprego
-var B = newBase();              // SEUS recursos (salvos no seu aparelho)
-var T = null;                   // TOTAL da sua base: soma dos jogadores dela (vem do servidor)
-var gameStarted = false;
-
-function newBase() {
-    return { hp: 100, defense: 20, food: 15, water: 15, scrap: 10, silver: 0, goldBat: false, lastRaid: "" };
-}
-
-function nowH() {
-    var d = new Date();
-    return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
-}
-function isWed() { return new Date().getDay() === 3; }
-function fireOn(h) { return h >= 18 || h < 6; }
-function todayKey() { var d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
-
-// ---------- salvamento local (a cada 2 segundos) ----------
-var lastSaved = "";
-function readLocal() {
-    try {
-        var raw = localStorage.getItem(SAVE_KEY);
-        if (raw) return JSON.parse(raw);
-        var old = localStorage.getItem(OLD_KEY); // migra save antigo
-        if (old) {
-            var o = JSON.parse(old);
-            return { me: { name: o.name || "" } };
-        }
-    } catch (e) { /* ignora */ }
-    return null;
-}
-function saveLocal() {
-    try {
-        var s = JSON.stringify({ me: me, G: G, B: B });
-        if (s === lastSaved) return;
-        localStorage.setItem(SAVE_KEY, s);
-        lastSaved = s;
-        $('save-state').innerText = "💾 Salvo " + new Date().toLocaleTimeString('pt-BR');
-    } catch (e) { $('save-state').innerText = "⚠️ Falha ao salvar"; }
-}
-
-function toast(msg) {
-    var t = $('toast');
-    t.innerText = msg; t.style.display = 'block';
-    clearTimeout(toast._t);
-    toast._t = setTimeout(function () { t.style.display = 'none'; }, 3200);
-}
-
-// =====================================================
-//  INÍCIO: nome e localização
-// =====================================================
-function buildUfSelect() {
-    var sel = $('uf-select');
-    sel.innerHTML = "";
-    STATES.slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; }).forEach(function (s) {
-        var o = document.createElement('option');
-        o.value = s.s; o.textContent = s.n + " (" + s.s + ")";
-        sel.appendChild(o);
-    });
-    sel.value = "SP";
-}
-
-function newId() {
-    var s = "";
-    while (s.length < 14) s += Math.floor(Math.random() * 16).toString(16);
-    return s;
-}
-function hueFromId(id) { return parseInt(id.slice(0, 6), 16) % 360; }
-
-function confirmUsername() {
-    var raw = $('username-input').value.trim();
-    var low = raw.toLowerCase();
-    if (low.length < 3) { alert("O nome precisa ter pelo menos 3 caracteres!"); return; }
-    for (var i = 0; i < blacklistedWords.length; i++) {
-        if (low.indexOf(blacklistedWords[i]) !== -1) { alert("Esse codinome contém palavras proibidas. Escolha outro!"); return; }
-    }
-    me.name = raw;
-    if (!me.id) me.id = newId();
-    me.shirt = hueFromId(me.id);
-    $('step-name').style.display = 'none';
-    $('step-loc').style.display = 'block';
-}
-
-function openLocation() {
-    $('start-overlay').classList.add('show');
-    $('step-name').style.display = 'none';
-    $('step-loc').style.display = 'block';
-    $('loc-msg').innerText = "";
-    if (me.uf) $('uf-select').value = me.uf;
-}
-
-function kmBetween(lat1, lon1, lat2, lon2) {
-    var dx = (lon1 - lon2) * 111 * Math.cos((lat1 + lat2) * 0.00872665), dy = (lat1 - lat2) * 111;
-    return Math.sqrt(dx * dx + dy * dy);
-}
-function nearestState(lat, lon) {
-    var best = null, bd = 1e9;
-    STATES.forEach(function (s) {
-        var d = kmBetween(lat, lon, s.lat, s.lon);
-        if (d < bd) { bd = d; best = s; }
-    });
-    return { uf: best.s, km: bd };
-}
-
-function useGps() {
-    var msg = $('loc-msg');
-    if (!navigator.geolocation) { msg.innerText = "Este navegador não tem localização. Escolha o estado abaixo."; return; }
-    msg.innerText = "Pedindo permissão...";
-    navigator.geolocation.getCurrentPosition(function (pos) {
-        var lat = Math.round(pos.coords.latitude * 100) / 100, lon = Math.round(pos.coords.longitude * 100) / 100;
-        msg.innerText = "Descobrindo seu estado...";
-        loadGeo(function () {
-            var uf = geo ? ufFromPoint(lon, lat) : null;
-            if (!uf) {
-                var n = nearestState(lat, lon);
-                if (n.km > (geo ? 450 : 1500)) { msg.innerText = "Você parece estar fora do Brasil. Escolha um estado abaixo."; return; }
-                uf = n.uf;
-            }
-            finishLocation(uf, lat, lon);
-        });
-    }, function () {
-        msg.innerText = "Sem permissão de localização. Escolha o estado abaixo.";
-    }, { timeout: 12000, maximumAge: 600000 });
-}
-
-function useManualUf() {
-    var uf = $('uf-select').value, s = stByUf[uf];
-    if (!s) return;
-    finishLocation(uf, Math.round(s.lat * 100) / 100, Math.round(s.lon * 100) / 100);
-}
-
-function finishLocation(uf, lat, lon) {
-    me.uf = uf; me.lat = lat; me.lon = lon;
-    saveLocal();
-    $('start-overlay').classList.remove('show');
-    bootGame();
-}
-
-window.onload = function () {
-    buildUfSelect();
-    layout();
-    var s = readLocal();
-    if (s && s.me && s.me.name) {
-        me = Object.assign(me, s.me);
-        G = Object.assign({ job: "" }, s.G || {});
-        if (s.B) B = Object.assign(newBase(), s.B);
-        if (!me.id) me.id = newId();
-        if (!me.shirt && me.shirt !== 0) me.shirt = hueFromId(me.id);
-    }
-    if (me.name && me.uf) bootGame();
-    else {
-        $('start-overlay').classList.add('show');
-        if (me.name) { $('step-name').style.display = 'none'; $('step-loc').style.display = 'block'; }
-    }
-    var first = function () { initAudio(); if (AUD.ctx && AUD.ctx.state === 'suspended') AUD.ctx.resume(); };
-    document.addEventListener('click', first);
-    document.addEventListener('touchstart', first);
-    $('chat-input').addEventListener('keydown', function (e) { if (e.keyCode === 13) sendChat(); });
+var DEF = {
+    center: { name: "Centro da Aldeia", size: 3, maxLvl: 4, res: "scrap", idx: 0,
+        hp: [400, 700, 1100, 1600], rate: [60, 120, 220, 400], cap: [120, 300, 600, 1000],
+        cost: [null, { scrap: 300, food: 150, water: 150 }, { scrap: 800, food: 400, water: 400 }, { scrap: 2000, food: 1000, water: 1000 }],
+        time: [0, 120, 600, 1800], desc: "O começo de tudo. Junta sucata e libera mais construções." },
+    tower: { name: "Torre de Guarda", size: 2, maxLvl: 3, idx: 1,
+        hp: [140, 220, 340], dmg: [7, 11, 17], cd: [0.8, 0.75, 0.7], range: [6.5, 7, 7.5],
+        cost: [{ scrap: 80, food: 40 }, { scrap: 200, food: 100 }, { scrap: 450, food: 220 }], time: [25, 90, 240], limit: [2, 3, 5, 7],
+        desc: "Atira nos zumbis inimigos que chegam perto." },
+    wall: { name: "Muro", size: 1, maxLvl: 3, idx: 2,
+        hp: [90, 180, 320], cost: [{ scrap: 8 }, { scrap: 30, water: 10 }, { scrap: 80, water: 30 }], time: [0, 8, 20], limit: [25, 50, 80, 120],
+        desc: "Segura os zumbis longe. Arraste o dedo para fazer uma fileira." },
+    market: { name: "Mercado", size: 2, maxLvl: 3, res: "food", idx: 3,
+        hp: [80, 130, 200], rate: [100, 200, 360], cap: [150, 300, 600],
+        cost: [{ scrap: 50, water: 30 }, { scrap: 150, water: 90 }, { scrap: 350, water: 200 }], time: [20, 80, 200], limit: [1, 2, 2, 3],
+        desc: "Produz alimentos. Toque nele para coletar." },
+    well: { name: "Poço", size: 2, maxLvl: 3, res: "water", idx: 4,
+        hp: [80, 130, 200], rate: [100, 200, 360], cap: [150, 300, 600],
+        cost: [{ scrap: 50, food: 30 }, { scrap: 150, food: 90 }, { scrap: 350, food: 200 }], time: [20, 80, 200], limit: [1, 2, 2, 3],
+        desc: "Dá água para a aldeia. Toque nele para coletar." },
+    hut: { name: "Cabana do Construtor", size: 2, maxLvl: 1, idx: 5,
+        hp: [90], cost: [{ scrap: 150, food: 80, water: 80 }], time: [45], limit: [1, 2, 2, 3],
+        desc: "Cada cabana é um construtor: constrói e melhora coisas ao mesmo tempo." },
+    cemetery: { name: "Cemitério", size: 2, maxLvl: 3, idx: 6,
+        hp: [120, 200, 300], cost: [{ scrap: 120, food: 60, water: 60 }, { scrap: 300, food: 150, water: 150 }, { scrap: 700, food: 350, water: 350 }], time: [40, 120, 300], limit: [1, 1, 2, 2],
+        desc: "Aqui nascem os zumbis do seu exército. Nível 2 libera o Cuspidor, nível 3 o Escudeiro." },
+    bunker: { name: "Bunker", size: 3, maxLvl: 3, idx: 7,
+        hp: [250, 380, 560], cap: [20, 35, 50], cost: [{ scrap: 150, food: 80, water: 80 }, { scrap: 400, food: 200, water: 200 }, { scrap: 900, food: 450, water: 450 }], time: [60, 150, 360], limit: [1, 2, 2, 3],
+        desc: "O acampamento dos zumbis. Quando inimigos chegam perto, o bunker abre e os zumbis saem para defender." }
 };
+var TYPES = ["center", "tower", "wall", "market", "well", "hut", "cemetery", "bunker"];
+var STORE_CAP = [600, 1500, 3500, 8000];
+var SHOP_ORDER = ["tower", "wall", "market", "well", "cemetery", "bunker", "hut"];
+var RESN = { food: "comida", water: "água", scrap: "sucata" };
+
+var TROOP = {
+    zombie: { name: "Zumbi", space: 1, hp: 45, dmg: 8, sp: 1.1, range: 0.7, cost: { food: 10, water: 5 }, time: 8, unlock: 1, col: "#7cb342", desc: "O zumbi inicial. Ataca de perto." },
+    spitter: { name: "Zumbi Cuspidor", space: 2, hp: 28, dmg: 9, sp: 1.0, range: 3.5, cost: { food: 25, water: 15 }, time: 18, unlock: 2, col: "#9ccc65", desc: "Cospe uma bola verde brilhante de longe, como uma arqueira." },
+    tank: { name: "Zumbi Escudeiro", space: 5, hp: 220, dmg: 6, sp: 0.9, range: 0.7, cost: { food: 60, water: 40 }, time: 45, unlock: 3, col: "#558b2f", desc: "Segura uma porta de ferro e fica na frente, protegendo as tropas." }
+};
+var TROOP_ORDER = ["zombie", "spitter", "tank"];
 
 // =====================================================
-//  MENU (botão ☰ abre metade da tela; ⬅ Voltar fecha) e TELA DEITADA
+//  ESTADO
 // =====================================================
-function layout() { resizeBase(); }
-function openMenu() { $('sheet').classList.add('open'); document.body.classList.add('menu-open'); layout(); }
-function closeMenu() { $('sheet').classList.remove('open'); document.body.classList.remove('menu-open'); layout(); }
-function toggleMenu() { if ($('sheet').classList.contains('open')) closeMenu(); else openMenu(); }
-window.addEventListener('resize', layout);
-window.addEventListener('orientationchange', function () { setTimeout(layout, 250); });
-
-function goLandscape() { // tela cheia + trava deitado (se o aparelho deixar)
-    var el = document.documentElement, rf = el.requestFullscreen || el.webkitRequestFullscreen;
-    function lock() {
-        try {
-            if (screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(function () { toast("Gire o celular para deitar."); });
-            else toast("Gire o celular para deitar.");
-        } catch (e) { toast("Gire o celular para deitar."); }
-    }
-    try {
-        var pr = rf ? rf.call(el) : null;
-        if (pr && pr.then) pr.then(lock).catch(function () { toast("Gire o celular para deitar."); }); else lock();
-    } catch (e) { toast("Gire o celular para deitar."); }
+var S = null;            // dados salvos
+var V = [];              // aldeia que está na tela (a sua ou a do inimigo)
+var occ = [];
+var sel = null, placing = null;
+var BT = null;           // batalha em andamento
+var SC = null;           // olhando a base do inimigo antes de atacar
+var $ = function (id) { return document.getElementById(id); };
+function now() { return Date.now(); }
+function fmtT(sec) {
+    sec = Math.max(0, Math.ceil(sec));
+    if (sec >= 3600) return Math.floor(sec / 3600) + "h " + Math.floor((sec % 3600) / 60) + "min";
+    if (sec >= 60) return Math.floor(sec / 60) + "min " + (sec % 60) + "s";
+    return sec + "s";
 }
+function toast(t) { var e = $('toast'); e.innerText = t; e.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(function () { e.style.display = 'none'; }, 3200); }
+function logAdd(t) { S.log.push({ t: now(), text: t }); if (S.log.length > 60) S.log.shift(); }
+function newId() { var s = ""; while (s.length < 14) s += Math.floor(Math.random() * 16).toString(16); return s; }
+function rng(seed) { var s = seed >>> 0; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
-// =====================================================
-//  CONTROLES: WASD / setas no PC, joystick no celular
-// =====================================================
-var KEYS = {}, JOYV = { x: 0, y: 0 };
-var IS_TOUCH = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-var MAN = { until: 0, moving: false };           // você está controlando o boneco
-var FDT = 0.12, UYMAX = 24, UXMIN = -60, UXMAX = 60;
-var POS = {};                                    // posições dos outros jogadores (mandadas pelo servidor)
-var lastPosSent = 0;
-if (IS_TOUCH) document.body.classList.add('touch');
-
-function isTyping() { var t = document.activeElement && document.activeElement.tagName; return t === 'INPUT' || t === 'SELECT' || t === 'TEXTAREA'; }
-function keyName(e) {
-    var k = (e.key || '').toLowerCase();
-    if (k === 'w' || k === 'arrowup') return 'up';
-    if (k === 's' || k === 'arrowdown') return 'down';
-    if (k === 'a' || k === 'arrowleft') return 'left';
-    if (k === 'd' || k === 'arrowright') return 'right';
-    return '';
+// ---------- regras da aldeia ----------
+function maxHp(b) { return DEF[b.type].hp[b.lvl - 1]; }
+function centerB() { for (var i = 0; i < S.vil.length; i++) if (S.vil[i].type === "center") return S.vil[i]; return null; }
+function cLvl() { return centerB().lvl; }
+function limitOf(type) { return DEF[type].limit[cLvl() - 1]; }
+function countOf(type) { var n = 0; S.vil.forEach(function (b) { if (b.type === type) n++; }); return n; }
+function maxBuildLvl() { return Math.min(3, cLvl()); }
+function storeCap() { return STORE_CAP[cLvl() - 1]; }
+function building(b) { return b.bEnd > now(); }
+function upgrading(b) { return b.uEnd > now(); }
+function functional(b) { return !building(b); }
+function costOf(type, lvl) {
+    var c = DEF[type].cost[lvl - 1];
+    if (type === "hut") { var m = Math.max(1, countOf("hut")); return { scrap: c.scrap * m, food: c.food * m, water: c.water * m }; }
+    return c;
 }
-window.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') { closeMenu(); return; }
-    if (isTyping() || e.ctrlKey || e.metaKey || e.altKey) return;
-    var k = keyName(e);
-    if (k) { KEYS[k] = true; e.preventDefault(); }
-});
-window.addEventListener('keyup', function (e) { var k = keyName(e); if (k) KEYS[k] = false; });
-window.addEventListener('blur', function () { KEYS = {}; });
-
-function inputVec() {
-    var x = 0, y = 0;
-    if (KEYS.left) x -= 1; if (KEYS.right) x += 1; if (KEYS.up) y -= 1; if (KEYS.down) y += 1;
-    x += JOYV.x; y += JOYV.y;
-    var m = Math.sqrt(x * x + y * y);
-    if (m > 1) { x /= m; y /= m; m = 1; }
-    return { x: x, y: y, m: m };
+function canPay(c) { for (var k in c) if (S.res[k] < c[k]) return false; return true; }
+function pay(c) { for (var k in c) S.res[k] -= c[k]; }
+function costText(c) { var a = []; for (var k in c) a.push(c[k] + " " + RESN[k]); return a.join(", "); }
+function builders() { var n = 0; S.vil.forEach(function (b) { if (b.type === "hut" && functional(b)) n++; }); return n; }
+function busy() { var n = 0; S.vil.forEach(function (b) { if (building(b) || upgrading(b)) n++; }); return n; }
+function stored(b) {
+    var d = DEF[b.type];
+    if (!d.rate || !functional(b)) return 0;
+    return Math.min(d.cap[b.lvl - 1], d.rate[b.lvl - 1] * (now() - b.last) / 3600000);
 }
-
-(function () { // joystick (toque ou mouse)
-    var joy = $('joy'), knob = $('joy-knob'), active = false, tid = null, cx = 0, cy = 0, R = 40;
-    function begin(x, y) { var r = joy.getBoundingClientRect(); cx = r.left + r.width / 2; cy = r.top + r.height / 2; active = true; move(x, y); }
-    function move(x, y) {
-        if (!active) return;
-        var dx = x - cx, dy = y - cy, d = Math.sqrt(dx * dx + dy * dy);
-        if (d > R) { dx = dx / d * R; dy = dy / d * R; }
-        knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
-        var dead = d < 8 ? 0 : 1;
-        JOYV.x = dead * dx / R; JOYV.y = dead * dy / R;
-    }
-    function end() { active = false; tid = null; JOYV.x = 0; JOYV.y = 0; knob.style.transform = 'translate(0,0)'; }
-    function find(list) { for (var i = 0; i < list.length; i++) if (list[i].identifier === tid) return list[i]; return null; }
-    joy.addEventListener('touchstart', function (e) { var t = e.changedTouches[0]; tid = t.identifier; begin(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
-    document.addEventListener('touchmove', function (e) { if (!active) return; var t = find(e.changedTouches); if (t) { move(t.clientX, t.clientY); e.preventDefault(); } }, { passive: false });
-    document.addEventListener('touchend', function (e) { if (active && find(e.changedTouches)) end(); });
-    document.addEventListener('touchcancel', function (e) { if (active && find(e.changedTouches)) end(); });
-    joy.addEventListener('mousedown', function (e) { begin(e.clientX, e.clientY); e.preventDefault(); });
-    document.addEventListener('mousemove', function (e) { if (active && tid === null) move(e.clientX, e.clientY); });
-    document.addEventListener('mouseup', function () { if (active && tid === null) end(); });
-})();
-
-function sendPos(force) {
-    if (!online || getPlayers().length < 2) return;
-    var now = Date.now(), a = AV[me.id];
-    if (!a || (!force && now - lastPosSent < 140)) return;
-    lastPosSent = now;
-    post("/pos", { id: me.id, x: Math.round(a.ux * 10) / 10, y: Math.round(a.uy * 10) / 10 });
-}
-
-function stepSelf(dt) { // anda com o seu boneco
-    var a = AV[me.id];
-    if (!a) return;
-    var v = inputVec(), now = Date.now();
-    if (v.m > 0.05) {
-        a.ux = Math.max(UXMIN, Math.min(UXMAX, a.ux + v.x * 7.5 * v.m * dt));
-        a.uy = Math.max(1, Math.min(UYMAX, a.uy + v.y * 7.5 * v.m * dt));
-        a.st = 'walk'; a.inside = false;
-        MAN.until = now + 10000; MAN.moving = true;
-        sendPos(false);
-    } else if (MAN.moving) {
-        MAN.moving = false; a.st = 'idle'; sendPos(true);
-    } else if (now < MAN.until && now - lastPosSent > 1000) {
-        sendPos(true); // avisa que você continua aí parado
-    }
-}
-
-// =====================================================
-//  GEOGRAFIA (divisas dos estados - IBGE)
-// =====================================================
-var geo = null; // { UF: [ polígono, ... ] }  polígono = [anel externo, ...]
-
-function fetchTimeout(url, ms) {
-    return new Promise(function (resolve, reject) {
-        var done = false;
-        var t = setTimeout(function () { if (!done) { done = true; reject(new Error("timeout")); } }, ms);
-        fetch(url).then(function (r) { if (!done) { done = true; clearTimeout(t); resolve(r); } })
-            .catch(function (e) { if (!done) { done = true; clearTimeout(t); reject(e); } });
+function bAt(x, y) { return (x < 0 || y < 0 || x >= GRID || y >= GRID) ? null : occ[y * GRID + x]; }
+function buildOcc() {
+    occ = new Array(GRID * GRID);
+    V.forEach(function (b) {
+        if (b.dead || b.hp <= 0 || b.moving) return;
+        var s = DEF[b.type].size;
+        for (var j = 0; j < s; j++) for (var i = 0; i < s; i++) occ[(b.y + j) * GRID + b.x + i] = b;
     });
+    vsDirty = true;
+}
+function useVillage(arr) { V = arr; buildOcc(); staticDirty = true; }
+function freeSpot(type, x, y) {
+    var s = DEF[type].size;
+    if (x < 1 || y < 1 || x + s > GRID - 1 || y + s > GRID - 1) return false;
+    for (var j = 0; j < s; j++) for (var i = 0; i < s; i++) if (occ[(y + j) * GRID + x + i]) return false;
+    return true;
 }
 
-function parseGeo(j) {
-    var feats = j && j.features;
-    if (!feats) { geo = null; return; }
-    var out = {}, n = 0;
-    feats.forEach(function (f) {
-        var p = f.properties || {};
-        var code = String(p.codarea || p.CD_UF || p.codigo || p.id || "");
-        var st = stByCode[code];
-        if (!st || !f.geometry) return;
-        out[st.s] = f.geometry.type === "Polygon" ? [f.geometry.coordinates] : f.geometry.coordinates;
-        n++;
-    });
-    geo = n >= 20 ? out : null;
+// ---------- exército: bunker guarda, cemitério treina ----------
+function cemeteries() { return S.vil.filter(function (b) { return b.type === "cemetery" && functional(b); }); }
+function cemLvl() { var m = 0; cemeteries().forEach(function (b) { m = Math.max(m, b.lvl); }); return m; }
+function houseCap() { var n = 0; S.vil.forEach(function (b) { if (b.type === "bunker" && functional(b)) n += DEF.bunker.cap[b.lvl - 1]; }); return n; }
+function houseUsed() { var n = 0; TROOP_ORDER.forEach(function (k) { n += S.troops[k] * TROOP[k].space; }); return n; }
+function queueSpace() { var n = 0; S.queue.forEach(function (k) { n += TROOP[k].space; }); return n; }
+function armyCount() { var n = 0; TROOP_ORDER.forEach(function (k) { n += S.troops[k]; }); return n; }
+function trainTroop(type) {
+    var T = TROOP[type];
+    if (cemLvl() < T.unlock) { toast("Precisa de um Cemitério nível " + T.unlock + "."); return; }
+    if (houseUsed() + queueSpace() + T.space > houseCap()) { toast("Sem espaço nos bunkers. Construa ou melhore um Bunker."); return; }
+    if (!canPay(T.cost)) { toast("Faltam recursos."); return; }
+    pay(T.cost);
+    if (!S.queue.length) S.trainAt = now();
+    S.queue.push(type);
+    updateTop(); openArmy(true); save();
+}
+function cancelTrain(i) {
+    var type = S.queue[i]; if (!type) return;
+    var c = TROOP[type].cost; for (var k in c) S.res[k] = Math.min(storeCap(), S.res[k] + c[k]);
+    S.queue.splice(i, 1); if (!S.queue.length) S.trainAt = now();
+    updateTop(); openArmy(true);
+}
+function processTraining(visual) {
+    var n = cemeteries().length;
+    if (!n || !S.queue.length) return;
+    var el = now() - S.trainAt;
+    while (S.queue.length) {
+        var type = S.queue[0], need = TROOP[type].time * 1000 / n;
+        if (el < need) break;
+        if (houseUsed() + TROOP[type].space > houseCap()) return; // bunker cheio: espera
+        S.troops[type]++; S.queue.shift(); el -= need; S.trainAt += need;
+        if (visual) spawnWalker(type);
+    }
 }
 
-function loadGeo(cb) {
-    if (geo) { cb(); return; }
+// =====================================================
+//  SALVAR / CARREGAR / COMEÇAR
+// =====================================================
+var lastSaved = "", seenW = 0;
+function skipKeys(k, v) { return (k === 'lastSeen' || k === 'dead' || k === 'cd' || k === 'moving') ? undefined : v; }
+function save(force) {
+    if (!S) return;
+    S.lastSeen = now();
     try {
-        var c = localStorage.getItem(GEO_KEY);
-        if (c) { parseGeo(JSON.parse(c)); if (geo) { cb(); return; } }
+        var str = JSON.stringify(S, skipKeys);
+        if (str !== lastSaved) { localStorage.setItem(SAVE_KEY, str); lastSaved = str; }
+        if (force || now() - seenW > 5000) { localStorage.setItem("zb_seen2", String(S.lastSeen)); seenW = now(); }
+    } catch (e) { /* cheio */ }
+}
+function load() {
+    try {
+        var r = localStorage.getItem(SAVE_KEY);
+        if (r) { S = JSON.parse(r); lastSaved = r; S.lastSeen = parseInt(localStorage.getItem("zb_seen2"), 10) || now(); return true; }
     } catch (e) { /* ignora */ }
-    fetchTimeout(GEO_URL, 9000).then(function (r) { return r.json(); }).then(function (j) {
-        parseGeo(j);
-        if (geo) { try { localStorage.setItem(GEO_KEY, JSON.stringify(j)); } catch (e) { /* cheio */ } }
-        cb();
-    }).catch(function () { cb(); });
+    return false;
 }
-
-function inRing(x, y, ring) {
-    var ins = false;
-    for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-        var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
-        if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) ins = !ins;
-    }
-    return ins;
-}
-function ufFromPoint(lon, lat) {
-    if (!geo) return null;
-    for (var k = 0; k < STATES.length; k++) {
-        var polys = geo[STATES[k].s];
-        if (!polys) continue;
-        for (var i = 0; i < polys.length; i++) if (inRing(lon, lat, polys[i][0])) return STATES[k].s;
-    }
-    return null;
+function newGame() {
+    var raw = $('name-in').value.trim(), low = raw.toLowerCase();
+    if (low.length < 3) { alert("O nome precisa ter pelo menos 3 letras."); return; }
+    for (var i = 0; i < BAD.length; i++) if (low.indexOf(BAD[i]) !== -1) { alert("Esse nome tem palavras proibidas. Escolha outro."); return; }
+    S = { id: newId(), name: raw, res: { food: 300, water: 300, scrap: 600 }, vil: [], nid: 1, troops: { zombie: 0, spitter: 0, tank: 0 }, queue: [], trainAt: now(),
+          trophies: 100, shield: now() + 12 * 3600 * 1000, nextBot: now() + BOT_EVERY, botN: 0, lastSeen: now(), log: [] };
+    S.vil.push({ id: S.nid++, type: "center", lvl: 1, x: 13, y: 13, hp: 400, bEnd: 0, uEnd: 0, last: now() });
+    S.vil.push({ id: S.nid++, type: "hut", lvl: 1, x: 9, y: 14, hp: 90, bEnd: 0, uEnd: 0, last: 0 });
+    logAdd("Bem-vindo, " + raw + "! Construa Torres, um Cemitério e um Bunker: os bots atacam a cada 90 minutos.");
+    $('start').classList.remove('show');
+    startGame();
 }
 
 // =====================================================
-//  CLIMA
+//  CÂMERA E DESENHO
 // =====================================================
-function wxKind(code) {
-    if (code === 0) return 'clear';
-    if (code <= 2) return 'partly';
-    if (code === 3) return 'cloud';
-    if (code === 45 || code === 48) return 'fog';
-    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return 'rain';
-    if (code >= 95) return 'storm';
-    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snow';
-    return 'cloud';
-}
-var WX_TEXT = { clear: "céu limpo", partly: "parcialmente nublado", cloud: "nublado", fog: "neblina", rain: "chovendo", storm: "tempestade", snow: "neve" };
+var cv = $('c'), cx = cv.getContext('2d');
+var lay = document.createElement('canvas'); lay.width = lay.height = GRID * LT;
+var lc = lay.getContext('2d');
+var vw = 0, vh = 0, dpr = 1, ts = 28, camX = 0, camY = 0;
+var staticDirty = true, dirty = true, rafPending = false;
 
-// clima do local exato do jogador
-var localWx = { kind: "clear", temp: null, raining: false };
-function fetchLocalWeather() {
-    if (me.lat === null || me.lat === undefined) return;
-    var url = "https://api.open-meteo.com/v1/forecast?latitude=" + me.lat + "&longitude=" + me.lon +
-              "&current=temperature_2m,weather_code,is_day,precipitation&timezone=auto";
-    fetchTimeout(url, 10000).then(function (r) { return r.json(); }).then(function (d) {
-        var c = d.current, k = wxKind(c.weather_code);
-        localWx = { kind: k, temp: c.temperature_2m, raining: (k === 'rain' || k === 'storm' || c.precipitation > 0.1) };
-        updateUI();
-    }).catch(function () { /* sem internet: mantém o último */ });
+function resize() {
+    vw = window.innerWidth; vh = window.innerHeight;
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var w = vw * dpr, h = vh * dpr;
+    if (w * h > 1300000) { var f = Math.sqrt(1300000 / (w * h)); dpr *= f; w = vw * dpr; h = vh * dpr; }
+    cv.width = Math.floor(w); cv.height = Math.floor(h);
+    clampCam(); requestRender();
 }
-function isRaining() { return localWx.raining; }
-
-// =====================================================
-//  MAPA DO BRASIL (com divisas dos estados)
-// =====================================================
-var weather = null, weatherTime = 0, mapTimer = null;
-
-function proj(lon, lat, size) {
-    var m = size * 0.04, span = 40.5;
-    return [m + (lon + 74.5) / span * (size - 2 * m), m + (5.8 - lat) / span * (size - 2 * m)];
+function clampCam() {
+    var mw = GRID * ts, mh = GRID * ts;
+    camX = mw <= vw ? (vw - mw) / 2 : Math.min(0, Math.max(vw - mw, camX));
+    camY = mh <= vh ? (vh - mh) / 2 : Math.min(0, Math.max(vh - mh, camY));
 }
-function unproj(x, y, size) {
-    var m = size * 0.04, span = 40.5;
-    return [(x - m) / (size - 2 * m) * span - 74.5, 5.8 - (y - m) / (size - 2 * m) * span];
+function zoomAt(px, py, nts) {
+    nts = Math.max(12, Math.min(52, nts));
+    var wx = (px - camX) / ts, wy = (py - camY) / ts;
+    ts = nts; camX = px - wx * ts; camY = py - wy * ts;
+    clampCam(); requestRender();
 }
+function zoomBtn(d) { zoomAt(vw / 2, vh / 2, ts * (d > 0 ? 1.25 : 0.8)); }
+function centerOn(b) { var s = DEF[b.type].size; camX = vw / 2 - (b.x + s / 2) * ts; camY = vh / 2 - (b.y + s / 2) * ts; clampCam(); }
+function fitMap() { ts = Math.max(12, Math.floor(Math.min(vw / GRID, (vh - 130) / GRID) * 10) / 10); camX = (vw - GRID * ts) / 2; camY = 56 + (vh - 130 - GRID * ts) / 2; }
+function requestRender() { dirty = true; if (!rafPending) { rafPending = true; requestAnimationFrame(frame); } }
 
-function wxIcon(c, x, y, r, kind, day) {
-    function dot(px, py, pr, col) { c.fillStyle = col; c.beginPath(); c.arc(px, py, pr, 0, 6.2832); c.fill(); }
-    function cloud(col, ox, oy) {
-        ox = ox || 0; oy = oy || 0;
-        dot(x - r * 0.45 + ox, y + r * 0.1 + oy, r * 0.45, col);
-        dot(x + r * 0.05 + ox, y - r * 0.2 + oy, r * 0.55, col);
-        dot(x + r * 0.5 + ox, y + r * 0.1 + oy, r * 0.4, col);
-        c.fillStyle = col; c.fillRect(x - r * 0.45 + ox, y + r * 0.1 + oy, r * 0.95, r * 0.4);
+function R(c, x, y, w, h, col) { c.fillStyle = col; c.fillRect(x, y, w, h); }
+function P(c, pts, col) { c.fillStyle = col; c.beginPath(); c.moveTo(pts[0], pts[1]); for (var i = 2; i < pts.length; i += 2) c.lineTo(pts[i], pts[i + 1]); c.closePath(); c.fill(); }
+function C(c, x, y, r, col) { c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, 6.2832); c.fill(); }
+function pips(c, b, s) { for (var i = 0; i < b.lvl; i++) C(c, b.x + 0.35 + i * 0.32, b.y + s - 0.2, 0.12, '#ffd54f'); }
+
+function drawCenter(c, b) {
+    var x = b.x, y = b.y, l = b.lvl;
+    R(c, x, y, 3, 3, '#8d7a62'); R(c, x + 0.05, y + 0.05, 2.9, 2.9, '#a08c72');
+    var wall = ['#a1887f', '#9e9e9e', '#bcaaa4', '#cfd8dc'][l - 1], roof = l === 4 ? '#f9a825' : (l === 3 ? '#8e24aa' : '#b71c1c');
+    R(c, x + 0.3, y + 1.0, 2.4, 1.75, wall); R(c, x + 0.3, y + 2.5, 2.4, 0.25, 'rgba(0,0,0,.25)');
+    P(c, [x + 0.1, y + 1.05, x + 2.9, y + 1.05, x + 1.5, y + 0.15], roof);
+    P(c, [x + 1.5, y + 0.15, x + 2.9, y + 1.05, x + 1.5, y + 1.05], 'rgba(0,0,0,.22)');
+    R(c, x + 1.2, y + 1.85, 0.6, 0.9, '#4e342e'); R(c, x + 0.55, y + 1.45, 0.4, 0.4, '#ffe082'); R(c, x + 2.05, y + 1.45, 0.4, 0.4, '#ffe082');
+    R(c, x + 1.47, y - 0.35, 0.06, 0.55, '#3e2723'); P(c, [x + 1.53, y - 0.35, x + 2.1, y - 0.2, x + 1.53, y - 0.05], '#e53935');
+    if (l >= 3) { C(c, x + 0.2, y + 0.2, 0.2, '#78909c'); C(c, x + 2.8, y + 0.2, 0.2, '#78909c'); }
+    pips(c, b, 3);
+}
+function drawTower(c, b) {
+    var x = b.x, y = b.y, l = b.lvl, cxx = x + 1, cyy = y + 1;
+    C(c, cxx + 0.08, cyy + 0.12, 0.92, 'rgba(0,0,0,.3)');
+    C(c, cxx, cyy, 0.9, ['#9e9e9e', '#78909c', '#5c6bc0'][l - 1]);
+    C(c, cxx, cyy, 0.68, ['#bdbdbd', '#a7b8c0', '#9fa8da'][l - 1]);
+    for (var i = 0; i < 8; i++) { var a = i * 0.7854; R(c, cxx + Math.cos(a) * 0.82 - 0.1, cyy + Math.sin(a) * 0.82 - 0.1, 0.2, 0.2, '#757575'); }
+    C(c, cxx, cyy, 0.3, '#37474f'); R(c, cxx - 0.05, cyy - 0.55, 0.1, 0.5, '#212121'); R(c, cxx - 0.5, cyy - 0.05, 1, 0.1, '#212121');
+    pips(c, b, 2);
+}
+function drawWall(c, b) {
+    var x = b.x, y = b.y, col = ['#9e9e9e', '#78909c', '#455a64'][b.lvl - 1], m = b.mask || 0;
+    if (m & 1) R(c, x, y + 0.28, 0.2, 0.44, col);
+    if (m & 2) R(c, x + 0.8, y + 0.28, 0.2, 0.44, col);
+    if (m & 4) R(c, x + 0.28, y, 0.44, 0.2, col);
+    if (m & 8) R(c, x + 0.28, y + 0.8, 0.44, 0.2, col);
+    R(c, x + 0.12, y + 0.12, 0.76, 0.76, 'rgba(0,0,0,.3)');
+    R(c, x + 0.1, y + 0.1, 0.76, 0.76, col); R(c, x + 0.1, y + 0.1, 0.76, 0.18, 'rgba(255,255,255,.28)');
+    R(c, x + 0.5, y + 0.28, 0.04, 0.5, 'rgba(0,0,0,.25)');
+}
+function drawMarket(c, b) {
+    var x = b.x, y = b.y;
+    R(c, x + 0.05, y + 0.1, 1.9, 1.85, '#7a6a4f'); R(c, x + 0.15, y + 0.75, 1.7, 1.1, '#8d6e63');
+    for (var i = 0; i < 6; i++) R(c, x + 0.1 + i * 0.3, y + 0.15, 0.3, 0.62, i % 2 ? '#fafafa' : '#e53935');
+    R(c, x + 0.1, y + 0.75, 1.8, 0.08, 'rgba(0,0,0,.3)');
+    R(c, x + 0.25, y + 1.2, 0.5, 0.45, '#c8a165'); R(c, x + 1.0, y + 1.25, 0.6, 0.4, '#c8a165');
+    C(c, x + 0.4, y + 1.2, 0.12, '#ff7043'); C(c, x + 0.62, y + 1.22, 0.12, '#ffa726'); C(c, x + 1.2, y + 1.25, 0.13, '#8bc34a'); C(c, x + 1.45, y + 1.27, 0.12, '#ef5350');
+    pips(c, b, 2);
+}
+function drawWell(c, b) {
+    var x = b.x, y = b.y;
+    C(c, x + 1.06, y + 1.1, 0.9, 'rgba(0,0,0,.28)');
+    C(c, x + 1, y + 1, 0.9, '#9e9e9e'); C(c, x + 1, y + 1, 0.66, '#616161'); C(c, x + 1, y + 1, 0.56, '#1e88e5'); C(c, x + 0.82, y + 0.85, 0.14, 'rgba(255,255,255,.45)');
+    for (var i = 0; i < 8; i++) { var a = i * 0.7854; R(c, x + 1 + Math.cos(a) * 0.78 - 0.07, y + 1 + Math.sin(a) * 0.78 - 0.07, 0.14, 0.14, '#bdbdbd'); }
+    R(c, x + 0.1, y + 0.9, 1.8, 0.12, '#6d4c41'); R(c, x + 0.1, y + 0.7, 0.12, 0.5, '#4e342e'); R(c, x + 1.78, y + 0.7, 0.12, 0.5, '#4e342e');
+    R(c, x + 1.05, y + 1.02, 0.2, 0.22, '#8d6e63');
+    pips(c, b, 2);
+}
+function drawHut(c, b) {
+    var x = b.x, y = b.y;
+    R(c, x + 0.15, y + 0.65, 1.7, 1.2, '#a1887f'); R(c, x + 0.15, y + 1.65, 1.7, 0.2, 'rgba(0,0,0,.25)');
+    P(c, [x + 0.02, y + 0.75, x + 1.98, y + 0.75, x + 1, y + 0.05], '#6d4c41'); P(c, [x + 1, y + 0.05, x + 1.98, y + 0.75, x + 1, y + 0.75], 'rgba(0,0,0,.25)');
+    R(c, x + 0.8, y + 1.2, 0.4, 0.65, '#3e2723');
+    R(c, x + 1.45, y + 1.3, 0.35, 0.1, '#757575'); R(c, x + 1.6, y + 1.15, 0.08, 0.4, '#8d6e63');
+}
+function drawCemetery(c, b) {
+    var x = b.x, y = b.y;
+    R(c, x + 0.03, y + 0.03, 1.94, 1.94, '#4a4a42'); R(c, x + 0.1, y + 0.1, 1.8, 1.8, '#5b5a50');
+    for (var i = 0; i < 7; i++) { R(c, x + 0.08 + i * 0.27, y + 0.04, 0.1, 0.3, '#2b2b27'); R(c, x + 0.08 + i * 0.27, y + 1.66, 0.1, 0.3, '#2b2b27'); }
+    for (i = 0; i < 3; i++) {
+        var gx = x + 0.28 + i * 0.5, gy = y + 0.55;
+        R(c, gx, gy + 0.15, 0.32, 0.6, '#b4b4aa'); c.fillStyle = '#b4b4aa'; c.beginPath(); c.arc(gx + 0.16, gy + 0.15, 0.16, Math.PI, 0); c.fill();
+        R(c, gx + 0.13, gy + 0.1, 0.06, 0.34, '#6e6e66'); R(c, gx + 0.05, gy + 0.2, 0.22, 0.06, '#6e6e66');
     }
-    function sun(px, py, pr) {
-        c.strokeStyle = '#ffd54f'; c.lineWidth = 2;
-        for (var a = 0; a < 8; a++) {
-            var an = a * 0.7854;
-            c.beginPath(); c.moveTo(px + Math.cos(an) * pr * 1.3, py + Math.sin(an) * pr * 1.3);
-            c.lineTo(px + Math.cos(an) * pr * 1.8, py + Math.sin(an) * pr * 1.8); c.stroke();
-        }
-        dot(px, py, pr, '#ffd54f');
-    }
-    if (kind === 'clear') { if (day) sun(x, y, r * 0.5); else dot(x, y, r * 0.55, '#cfd8dc'); }
-    else if (kind === 'partly') { if (day) sun(x + r * 0.3, y - r * 0.3, r * 0.35); else dot(x + r * 0.3, y - r * 0.3, r * 0.4, '#cfd8dc'); cloud('#cfd8dc', 0, r * 0.15); }
-    else if (kind === 'cloud') cloud('#b0bec5');
-    else if (kind === 'fog') { c.strokeStyle = '#cfd8dc'; c.lineWidth = 2; for (var f = -1; f <= 1; f++) { c.beginPath(); c.moveTo(x - r * 0.8, y + f * r * 0.4); c.lineTo(x + r * 0.8, y + f * r * 0.4); c.stroke(); } }
-    else if (kind === 'rain') { cloud('#78909c', 0, -r * 0.2); c.strokeStyle = '#4fc3f7'; c.lineWidth = 2; for (var d = -1; d <= 1; d++) { c.beginPath(); c.moveTo(x + d * r * 0.5, y + r * 0.45); c.lineTo(x + d * r * 0.5 - r * 0.2, y + r * 0.95); c.stroke(); } }
-    else if (kind === 'storm') {
-        cloud('#455a64', 0, -r * 0.2); c.fillStyle = '#ffeb3b'; c.beginPath();
-        c.moveTo(x + r * 0.1, y + r * 0.3); c.lineTo(x - r * 0.25, y + r * 0.7); c.lineTo(x, y + r * 0.7);
-        c.lineTo(x - r * 0.15, y + r * 1.1); c.lineTo(x + r * 0.35, y + r * 0.55); c.lineTo(x + r * 0.1, y + r * 0.55); c.closePath(); c.fill();
-    } else if (kind === 'snow') { cloud('#90a4ae', 0, -r * 0.2); for (var q = -1; q <= 1; q++) dot(x + q * r * 0.5, y + r * 0.7, r * 0.12, '#fff'); }
+    C(c, x + 1.6, y + 1.5, 0.28, '#3b2f20'); C(c, x + 1.6, y + 1.5, 0.18, '#2e6b22');
+    if (b.lvl >= 2) { C(c, x + 0.5, y + 1.5, 0.22, 'rgba(120,255,120,.35)'); }
+    if (b.lvl >= 3) { C(c, x + 1.0, y + 1.5, 0.3, 'rgba(160,120,255,.4)'); }
+    pips(c, b, 2);
+}
+function drawBunker(c, b) {
+    var x = b.x, y = b.y;
+    R(c, x, y, 3, 3, '#6a6f74'); R(c, x + 0.12, y + 0.12, 2.76, 2.76, '#868b90'); R(c, x + 0.25, y + 0.25, 2.5, 2.5, '#5c6166');
+    for (var i = 0; i < 10; i++) R(c, x + 0.12 + i * 0.28, y + 0.12, 0.14, 0.12, i % 2 ? '#ffd600' : '#212121');
+    for (i = 0; i < 10; i++) R(c, x + 0.12 + i * 0.28, y + 2.76, 0.14, 0.12, i % 2 ? '#ffd600' : '#212121');
+    R(c, x + 0.7, y + 0.7, 1.6, 1.6, '#2f3438'); R(c, x + 0.78, y + 0.78, 0.7, 1.44, '#454b50'); R(c, x + 1.52, y + 0.78, 0.7, 1.44, '#454b50');
+    R(c, x + 1.47, y + 0.78, 0.06, 1.44, '#1c1f22');
+    [[0.9, 0.95], [0.9, 2.0], [2.0, 0.95], [2.0, 2.0]].forEach(function (p) { C(c, x + p[0], y + p[1], 0.06, '#9aa0a6'); });
+    R(c, x + 0.35, y + 0.5, 0.25, 0.25, '#2a2e32'); R(c, x + 2.4, y + 0.5, 0.25, 0.25, '#2a2e32');
+    pips(c, b, 3);
+}
+function drawRuin(c, b) {
+    var s = DEF[b.type].size, x = b.x, y = b.y;
+    if (b.type === 'wall') { R(c, x + 0.2, y + 0.55, 0.3, 0.25, '#7a7466'); R(c, x + 0.55, y + 0.4, 0.25, 0.25, '#8a8272'); return; }
+    R(c, x + 0.05, y + 0.05, s - 0.1, s - 0.1, '#4f4a3e');
+    [[0.1, 0.2, 0.5, 0.3], [0.6, 0.1, 0.3, 0.5], [0.3, 0.6, 0.5, 0.3], [0.7, 0.65, 0.3, 0.25]].forEach(function (q) { R(c, x + q[0] * s, y + q[1] * s, q[2] * s * 0.7, q[3] * s * 0.7, '#8a8272'); });
+}
+function drawCons(c, x, y, s) {
+    R(c, x + 0.05, y + 0.05, s - 0.1, s - 0.1, '#6b5a3a');
+    c.strokeStyle = '#d7b46a'; c.lineWidth = 0.09; c.beginPath();
+    for (var i = 0; i <= s * 2; i++) { c.moveTo(x + 0.1 + i * 0.5, y + 0.1); c.lineTo(x + 0.1, y + 0.1 + i * 0.5); }
+    c.stroke();
+}
+var DRAWERS = { center: drawCenter, tower: drawTower, wall: drawWall, market: drawMarket, well: drawWell, hut: drawHut, cemetery: drawCemetery, bunker: drawBunker };
+var SPR = {};
+function wallMask(b) {
+    var m = 0, o;
+    o = bAt(b.x - 1, b.y); if (o && o.type === 'wall') m |= 1;
+    o = bAt(b.x + 1, b.y); if (o && o.type === 'wall') m |= 2;
+    o = bAt(b.x, b.y - 1); if (o && o.type === 'wall') m |= 4;
+    o = bAt(b.x, b.y + 1); if (o && o.type === 'wall') m |= 8;
+    return m;
+}
+function getSprite(b) { // cada tipo de construção é desenhado uma vez só e depois é só copiar
+    var wm = b.type === 'wall' && !b.dead ? wallMask(b) : 0;
+    var key = b.dead ? 'r|' + b.type : (building(b) ? 'c|' + DEF[b.type].size : (b.type === 'wall' ? 'w|' + b.lvl + '|' + wm : b.type + '|' + b.lvl));
+    var sp = SPR[key]; if (sp) return sp;
+    var size = DEF[b.type].size, cvs = document.createElement('canvas');
+    cvs.width = cvs.height = Math.ceil((size + 1) * LT);
+    var c = cvs.getContext('2d'); c.setTransform(LT, 0, 0, LT, 0, 0);
+    var fake = { type: b.type, lvl: b.lvl, x: 0.5, y: 0.5, mask: wm };
+    if (b.dead) drawRuin(c, fake); else if (building(b)) drawCons(c, 0.5, 0.5, size); else DRAWERS[b.type](c, fake);
+    SPR[key] = cvs; return cvs;
 }
 
-function drawMap() {
-    var cv = $('map-canvas');
-    var size = Math.max(240, Math.min(window.innerWidth - 20, window.innerHeight - 190, 640));
-    var dpr = Math.min(window.devicePixelRatio || 1, 2);
-    cv.width = Math.round(size * dpr); cv.height = Math.round(size * dpr);
-    cv.style.width = size + "px"; cv.style.height = size + "px";
-    var c = cv.getContext('2d');
-    c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.fillStyle = '#0d2233'; c.fillRect(0, 0, size, size);
+var DECOR = null;
+function makeDecor() {
+    var r = rng(12345);
+    DECOR = { tufts: [], trees: [], rocks: [] };
+    var i;
+    for (i = 0; i < 90; i++) DECOR.tufts.push([1 + r() * 28, 1 + r() * 28]);
+    for (i = 0; i < 6; i++) DECOR.rocks.push([2 + r() * 26, 2 + r() * 26]);
+    for (i = 0; i < GRID; i++) DECOR.trees.push([i + 0.5, 0.5 + r() * 0.3, r()], [i + 0.5, GRID - 0.5 - r() * 0.3, r()], [0.5 + r() * 0.3, i + 0.5, r()], [GRID - 0.5 - r() * 0.3, i + 0.5, r()]);
+}
+var terr = [null, null];
+function terrain(enemy) { // chão e árvores: desenhado uma vez só
+    var k = enemy ? 1 : 0;
+    if (terr[k]) return terr[k];
+    if (!DECOR) makeDecor();
+    var cvs = document.createElement('canvas'); cvs.width = cvs.height = GRID * LTT;
+    var c = cvs.getContext('2d'); c.setTransform(LTT, 0, 0, LTT, 0, 0);
+    var x, y;
+    for (y = 0; y < GRID; y++) for (x = 0; x < GRID; x++) R(c, x, y, 1, 1, ((x + y) & 1) ? (enemy ? '#7a7a46' : '#5f9040') : (enemy ? '#848450' : '#679947'));
+    c.strokeStyle = 'rgba(0,0,0,.18)'; c.lineWidth = 0.02; c.beginPath();
+    for (x = 1; x < GRID; x++) { c.moveTo(x, 1); c.lineTo(x, GRID - 1); c.moveTo(1, x); c.lineTo(GRID - 1, x); }
+    c.stroke();
+    c.strokeStyle = enemy ? '#58582c' : '#3f6b2c'; c.lineWidth = 0.05; c.beginPath();
+    DECOR.tufts.forEach(function (t) { c.moveTo(t[0], t[1]); c.lineTo(t[0] - 0.08, t[1] - 0.2); c.moveTo(t[0], t[1]); c.lineTo(t[0] + 0.08, t[1] - 0.22); });
+    c.stroke();
+    DECOR.rocks.forEach(function (rk) { C(c, rk[0], rk[1], 0.2, '#9e9e9e'); C(c, rk[0] - 0.05, rk[1] - 0.05, 0.12, '#bdbdbd'); });
+    R(c, 0, 0, GRID, 1, '#2f5a22'); R(c, 0, GRID - 1, GRID, 1, '#2f5a22'); R(c, 0, 0, 1, GRID, '#2f5a22'); R(c, GRID - 1, 0, 1, GRID, '#2f5a22');
+    DECOR.trees.forEach(function (t) { C(c, t[0], t[1], 0.55, '#1e4015'); C(c, t[0] - 0.12, t[1] - 0.12, 0.38, t[2] > 0.5 ? '#2e6b22' : '#357a28'); });
+    terr[k] = cvs; return cvs;
+}
 
-    function path(ring) {
-        c.beginPath();
-        for (var i = 0; i < ring.length; i++) {
-            var p = proj(ring[i][0], ring[i][1], size);
-            if (i === 0) c.moveTo(p[0], p[1]); else c.lineTo(p[0], p[1]);
-        }
-        c.closePath();
-    }
+function bubbleCol(res) { return res === 'food' ? '#ff9800' : (res === 'water' ? '#29b6f6' : '#b0bec5'); }
 
-    if (geo) {
-        // estados com divisas
-        STATES.forEach(function (st) {
-            var polys = geo[st.s]; if (!polys) return;
-            var mine = st.s === me.uf;
-            for (var i = 0; i < polys.length; i++) {
-                path(polys[i][0]);
-                c.fillStyle = mine ? '#4c8a3f' : '#2d4a2b'; c.fill();
-                c.strokeStyle = '#b9e8a5'; c.lineWidth = 1.2; c.stroke();
-            }
-        });
+// zumbis (desenhados em unidades de quadrado)
+function drawZombie(c, u, t) {
+    var T = TROOP[u.type], bob = Math.sin(t / 110 + u.id) * 0.04, x = u.x, y = u.y + bob;
+    C(c, u.x, u.y + 0.2, 0.3, u.side === 'a' ? 'rgba(229,57,53,.45)' : (u.side === 'd' ? 'rgba(66,165,245,.5)' : 'rgba(118,255,3,.4)')); // anel: vermelho ataca, azul defende
+    if (u.type === 'tank') {
+        R(c, x - 0.26, y - 0.18, 0.52, 0.5, '#546e7a'); C(c, x, y - 0.3, 0.22, T.col); R(c, x - 0.05, y - 0.36, 0.05, 0.05, '#c62828');
+        R(c, x + 0.16, y - 0.34, 0.34, 0.66, '#9aa4ab'); R(c, x + 0.16, y - 0.34, 0.34, 0.1, '#cfd8dc'); // porta de ferro
+        R(c, x + 0.3, y - 0.2, 0.05, 0.4, '#6f7a82'); C(c, x + 0.22, y - 0.26, 0.025, '#37474f'); C(c, x + 0.44, y - 0.26, 0.025, '#37474f'); C(c, x + 0.22, y + 0.24, 0.025, '#37474f'); C(c, x + 0.44, y + 0.24, 0.025, '#37474f');
     } else {
-        path(BRAZIL); c.fillStyle = '#2d4a2b'; c.fill(); c.strokeStyle = '#6fae5b'; c.lineWidth = 2; c.stroke();
+        R(c, x - 0.16, y - 0.1, 0.32, 0.34, '#546e7a');
+        C(c, x, y - 0.2, 0.16, T.col);
+        R(c, x + 0.1, y - 0.05, 0.22, 0.07, T.col);
+        R(c, x - 0.05, y - 0.24, 0.04, 0.04, '#c62828');
+        if (u.type === 'spitter') { C(c, x + 0.08, y - 0.14, 0.07, '#76ff03'); C(c, x + 0.08, y - 0.14, 0.12, 'rgba(118,255,3,.3)'); }
     }
+    if (u.hp < u.max) { R(c, u.x - 0.25, u.y - 0.55, 0.5, 0.07, '#000'); R(c, u.x - 0.24, u.y - 0.54, 0.48 * Math.max(0, u.hp / u.max), 0.05, u.side === 'a' ? '#ef5350' : '#42a5f5'); }
+}
 
-    var r = size / 40;
-    c.textAlign = 'center';
-    c.font = 'bold ' + Math.round(size / 54) + 'px monospace';
-    STATES.forEach(function (st, k) {
-        var pt = proj(st.lon, st.lat, size);
-        st.px = pt[0]; st.py = pt[1];
-        var w = weather ? weather[k] : null;
-        if (w) {
-            wxIcon(c, pt[0], pt[1], r, wxKind(w.code), w.day === 1);
-            c.fillStyle = '#fff';
-            c.fillText(st.s + " " + Math.round(w.temp) + "°", pt[0], pt[1] + r * 1.8);
-        } else {
-            c.fillStyle = '#90a4ae'; c.beginPath(); c.arc(pt[0], pt[1], 3, 0, 6.2832); c.fill();
-            c.fillStyle = '#ddd'; c.fillText(st.s, pt[0], pt[1] + 14);
+var VS = [], vsDirty = true, nightA = 0, nightT = 0;
+function nightMode() {
+    var t = now();
+    if (t - nightT > 5000) { nightT = t; var d = new Date(), h = d.getHours() + d.getMinutes() / 60; nightA = (h >= 18.5 || h < 5.5) ? 1 : ((h >= 17 || h < 7) ? 2 : 0); }
+    return nightA;
+}
+function render() {
+    if (!S) return;
+    var enemy = !!(SC || (BT && BT.kind === 'attack'));
+    cx.setTransform(1, 0, 0, 1, 0, 0);
+    cx.fillStyle = '#16210f'; cx.fillRect(0, 0, cv.width, cv.height);
+    var k = ts * dpr;
+    cx.setTransform(k, 0, 0, k, camX * dpr, camY * dpr);
+    var tr = terrain(enemy);
+    var x0 = Math.max(0, Math.floor(-camX / ts)), y0 = Math.max(0, Math.floor(-camY / ts)), x1 = Math.min(GRID, Math.ceil((vw - camX) / ts)), y1 = Math.min(GRID, Math.ceil((vh - camY) / ts));
+    if (x1 > x0 && y1 > y0) cx.drawImage(tr, x0 * LTT, y0 * LTT, (x1 - x0) * LTT, (y1 - y0) * LTT, x0, y0, x1 - x0, y1 - y0);
+    if (vsDirty) { VS = V.slice().sort(function (a, b) { return a.y - b.y || a.x - b.x; }); vsDirty = false; }
+    var t = now(), i, b, s, d, mine = (V === S.vil);
+
+    for (i = 0; i < VS.length; i++) {
+        b = VS[i]; if (b.moving) continue;
+        s = DEF[b.type].size;
+        if (b.x + s < x0 - 1 || b.x > x1 + 1 || b.y + s < y0 - 1 || b.y > y1 + 1) continue;
+        cx.drawImage(getSprite(b), b.x - 0.5, b.y - 0.5, s + 1, s + 1);
+    }
+    for (i = 0; i < VS.length; i++) {
+        b = VS[i]; if (b.moving || b.dead) continue;
+        s = DEF[b.type].size; d = DEF[b.type];
+        if (mine && !BT) {
+            if (d.rate && functional(b) && stored(b) >= d.cap[b.lvl - 1] * 0.25) {
+                var bx = b.x + s / 2, by = b.y - 0.25 - Math.abs(Math.sin(t / 500)) * 0.1;
+                C(cx, bx, by, 0.34, '#fff'); C(cx, bx, by, 0.27, bubbleCol(d.res));
+            }
+            if (building(b) || upgrading(b)) {
+                var end = building(b) ? b.bEnd : b.uEnd, total = d.time[(building(b) ? b.lvl : b.lvl + 1) - 1] * 1000;
+                var p = Math.max(0, Math.min(1, 1 - (end - t) / total));
+                R(cx, b.x, b.y - 0.3, s, 0.2, '#000'); R(cx, b.x + 0.03, b.y - 0.27, (s - 0.06) * p, 0.14, upgrading(b) ? '#ffca28' : '#66bb6a');
+            }
         }
-        var n = counts[st.s] || 0;
-        if (n > 0) { // jogadores online na base do estado
-            c.fillStyle = '#e53935'; c.beginPath(); c.arc(pt[0] + r, pt[1] - r, r * 0.65, 0, 6.2832); c.fill();
-            c.fillStyle = '#fff'; c.fillText(String(n), pt[0] + r, pt[1] - r + r * 0.25);
+        if (BT && b.hp < maxHp(b) && b.hp > 0) {
+            R(cx, b.x, b.y + s + 0.05, s, 0.16, '#000'); R(cx, b.x + 0.03, b.y + s + 0.08, (s - 0.06) * (b.hp / maxHp(b)), 0.1, b.hp / maxHp(b) > 0.5 ? '#66bb6a' : '#ef5350');
         }
-        if (st.s === me.uf) { c.strokeStyle = '#ffeb3b'; c.lineWidth = 2; c.beginPath(); c.arc(pt[0], pt[1], r * 1.3, 0, 6.2832); c.stroke(); }
-    });
-}
-
-function summarize() {
-    if (!weather) return "Sem dados de clima ainda.";
-    var rainy = [], sunny = 0;
-    for (var i = 0; i < STATES.length; i++) {
-        var kd = wxKind(weather[i].code);
-        if (kd === 'rain' || kd === 'storm') rainy.push(STATES[i].s);
-        if (kd === 'clear' && weather[i].day === 1) sunny++;
     }
-    return "☀️ Sol em " + sunny + " capitais. " + (rainy.length ? "🌧️ Chovendo em: " + rainy.join(", ") + "." : "Nenhuma capital com chuva agora.");
-}
-
-function loadWeather(force) {
-    if (!force && weather && Date.now() - weatherTime < 600000) { drawMap(); $('map-info').innerText = summarize(); return; }
-    $('map-status').innerText = "Carregando clima...";
-    var lats = [], lons = [];
-    STATES.forEach(function (s) { lats.push(s.lat); lons.push(s.lon); });
-    var url = "https://api.open-meteo.com/v1/forecast?latitude=" + lats.join(",") + "&longitude=" + lons.join(",") +
-              "&current=temperature_2m,weather_code,is_day&timezone=auto";
-    fetchTimeout(url, 12000).then(function (r) { return r.json(); }).then(function (data) {
-        var arr = Array.isArray(data) ? data : [data];
-        weather = arr.map(function (d) { return { code: d.current.weather_code, temp: d.current.temperature_2m, day: d.current.is_day }; });
-        weatherTime = Date.now();
-        $('map-status').innerText = "Atualizado às " + new Date().toLocaleTimeString('pt-BR');
-        $('map-info').innerText = summarize();
-        drawMap();
-    }).catch(function () { $('map-status').innerText = "Sem internet ou clima indisponível."; drawMap(); });
-}
-
-function openMap() {
-    $('map-overlay').classList.add('show');
-    drawMap();
-    loadGeo(function () { drawMap(); });
-    loadWeather(false);
-    clearInterval(mapTimer);
-    mapTimer = setInterval(function () { loadWeather(true); }, 600000);
-}
-function closeMap() { $('map-overlay').classList.remove('show'); clearInterval(mapTimer); }
-
-$('map-canvas').addEventListener('click', function (e) {
-    var cv = $('map-canvas'), rc = cv.getBoundingClientRect(), size = parseFloat(cv.style.width) || cv.width, sx = size / rc.width;
-    var x = (e.clientX - rc.left) * sx, y = (e.clientY - rc.top) * sx;
-    var ll = unproj(x, y, size), uf = ufFromPoint(ll[0], ll[1]), st = uf ? stByUf[uf] : null;
-    if (!st) { // sem divisas: pega a capital mais perto
-        var best = -1, bd = 1e9;
-        STATES.forEach(function (s, i) { var dx = (s.px || 0) - x, dy = (s.py || 0) - y, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = i; } });
-        if (best >= 0 && bd < 40 * 40) st = STATES[best];
+    if (BT) { // bunkers que abriram
+        for (i = 0; i < BT.bunkers.length; i++) {
+            var bk = BT.bunkers[i]; if (!bk.opened || bk.b.dead) continue;
+            var bb = bk.b; R(cx, bb.x + 0.7, bb.y + 0.7, 1.6, 1.6, '#050505'); C(cx, bb.x + 1.5, bb.y + 1.5, 0.55 + Math.sin(t / 200) * 0.05, 'rgba(118,255,3,.35)');
+            R(cx, bb.x + 0.5, bb.y + 0.75, 0.3, 1.5, '#454b50'); R(cx, bb.x + 2.2, bb.y + 0.75, 0.3, 1.5, '#454b50');
+        }
     }
-    if (!st) return;
-    var n = counts[st.s] || 0, i = STATES.indexOf(st), w = weather ? weather[i] : null;
-    $('map-info').innerText = st.n + " (" + st.s + "): " + n + (n === 1 ? " jogador" : " jogadores") + " na base (nível " + lvlFromN(Math.max(1, n)) + ")" +
-        (w ? ". Em " + st.cap + ": " + WX_TEXT[wxKind(w.code)] + ", " + Math.round(w.temp) + "°C, " + (w.day === 1 ? "dia" : "noite") + "." : ".");
+    if (sel && mine && S.vil.indexOf(sel) >= 0 && !BT && !placing) {
+        s = DEF[sel.type].size;
+        cx.strokeStyle = '#ffee58'; cx.lineWidth = 0.09; cx.strokeRect(sel.x - 0.05, sel.y - 0.05, s + 0.1, s + 0.1);
+        if (sel.type === 'tower' && functional(sel)) { cx.strokeStyle = 'rgba(255,255,255,.5)'; cx.lineWidth = 0.05; cx.beginPath(); cx.arc(sel.x + 1, sel.y + 1, DEF.tower.range[sel.lvl - 1], 0, 6.2832); cx.stroke(); }
+        if (sel.type === 'bunker') { cx.strokeStyle = 'rgba(118,255,3,.5)'; cx.lineWidth = 0.05; cx.beginPath(); cx.arc(sel.x + 1.5, sel.y + 1.5, TRIG, 0, 6.2832); cx.stroke(); }
+    }
+    if (placing && !(placing.type === 'wall' && !placing.move)) {
+        s = DEF[placing.type].size; var ok = freeSpot(placing.type, placing.gx, placing.gy);
+        R(cx, placing.gx, placing.gy, s, s, ok ? 'rgba(102,187,106,.55)' : 'rgba(239,83,80,.55)');
+        cx.strokeStyle = ok ? '#a5d6a7' : '#ffab91'; cx.lineWidth = 0.08; cx.strokeRect(placing.gx, placing.gy, s, s);
+        if (placing.move) { cx.globalAlpha = 0.6; cx.drawImage(getSprite(placing.move), placing.gx - 0.5, placing.gy - 0.5, s + 1, s + 1); cx.globalAlpha = 1; }
+    }
+    if (walkers.length) for (i = 0; i < walkers.length; i++) drawZombie(cx, walkers[i], t);
+    if (BT) {
+        for (i = 0; i < BT.projs.length; i++) {
+            var pr = BT.projs[i];
+            if (pr.glow) { var f = 1 - pr.t / pr.max, px = pr.x1 + (pr.x2 - pr.x1) * f, py = pr.y1 + (pr.y2 - pr.y1) * f; C(cx, px, py, 0.22, 'rgba(118,255,3,.3)'); C(cx, px, py, 0.11, '#b2ff59'); }
+            else { cx.strokeStyle = 'rgba(255,238,88,' + Math.min(1, pr.t * 8) + ')'; cx.lineWidth = 0.07; cx.beginPath(); cx.moveTo(pr.x1, pr.y1); cx.lineTo(pr.x2, pr.y2); cx.stroke(); }
+        }
+        var us = BT.us; // ordena por altura (quase já ordenado, então é rápido)
+        for (i = 1; i < us.length; i++) { var cu = us[i], j = i - 1; while (j >= 0 && us[j].y > cu.y) { us[j + 1] = us[j]; j--; } us[j + 1] = cu; }
+        for (i = 0; i < us.length; i++) drawZombie(cx, us[i], t);
+        if (BT.kind === 'attack' && !BT.over) { cx.strokeStyle = 'rgba(255,255,255,.25)'; cx.lineWidth = 0.04; cx.setLineDash([0.2, 0.2]); cx.strokeRect(0.6, 0.6, GRID - 1.2, GRID - 1.2); cx.setLineDash([]); }
+    }
+    cx.setTransform(1, 0, 0, 1, 0, 0);
+    var na = nightMode();
+    if (na === 1) { cx.fillStyle = 'rgba(8,14,48,0.30)'; cx.fillRect(0, 0, cv.width, cv.height); }
+    else if (na === 2) { cx.fillStyle = 'rgba(200,100,40,0.12)'; cx.fillRect(0, 0, cv.width, cv.height); }
+}
+
+var loopOn = false, lastT = 0, acc = 0, lastR = 0, hudT = 0;
+function requestRender() { dirty = true; ensureLoop(); }
+function ensureLoop() { if (!loopOn) { loopOn = true; lastT = now(); requestAnimationFrame(loop); } }
+function startLoop() { acc = 0; ensureLoop(); }
+function loop() { // a simulação anda em passos fixos; o desenho é limitado para não pesar
+    var t = now(), dt = Math.min(0.25, (t - lastT) / 1000); lastT = t;
+    var active = false;
+    if (BT && !BT.over) {
+        active = true; acc += dt * BT.speed;
+        var n = 0;
+        while (acc >= 0.05 && n < 8 && BT && !BT.over) { btStep(0.05); acc -= 0.05; n++; }
+        if (n >= 8) acc = 0;
+        if (BT && BT.over) { btEnd(); active = false; dirty = true; }
+        else if (t - hudT > 200) { hudT = t; updateBHud(); }
+    }
+    if (walkers.length) { stepWalkers(dt); active = true; }
+    if (dirty || active) {
+        if (t - lastR >= 28 || !active) { render(); lastR = t; dirty = false; }
+    }
+    if (active || dirty) requestAnimationFrame(loop); else loopOn = false;
+}
+
+// =====================================================
+//  TOQUES, ARRASTAR E ZOOM
+// =====================================================
+var pts = {}, painting = false, lastPaintKey = "", pinch = null, holdT = null, holdPos = null;
+function npts() { return Object.keys(pts).length; }
+function tileAt(px, py) { return { x: Math.floor((px - camX) / ts), y: Math.floor((py - camY) / ts), fx: (px - camX) / ts, fy: (py - camY) / ts }; }
+function attackMode() { return BT && BT.kind === 'attack' && !BT.over; }
+
+cv.addEventListener('pointerdown', function (e) {
+    try { cv.setPointerCapture(e.pointerId); } catch (x) { /* ignora */ }
+    pts[e.pointerId] = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: now(), moved: false };
+    var n = npts();
+    if (n === 1) {
+        if (attackMode()) { holdPos = { x: e.clientX, y: e.clientY }; deployAtScreen(holdPos.x, holdPos.y); holdT = setInterval(function () { if (holdPos) deployAtScreen(holdPos.x, holdPos.y); }, 170); }
+        else if (placing && placing.type === 'wall' && !placing.move) { painting = true; lastPaintKey = ""; paintAt(e.clientX, e.clientY); }
+    } else if (n === 2) {
+        painting = false; holdPos = null; clearInterval(holdT);
+        var ks = Object.keys(pts), a = pts[ks[0]], b = pts[ks[1]];
+        pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), ts: ts };
+        a.moved = b.moved = true;
+    }
 });
+cv.addEventListener('pointermove', function (e) {
+    var p = pts[e.pointerId]; if (!p) return;
+    var dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+    var n = npts();
+    if (n === 1) {
+        if (holdPos) { holdPos.x = e.clientX; holdPos.y = e.clientY; return; }
+        if (painting) { paintAt(e.clientX, e.clientY); return; }
+        if (!p.moved && Math.hypot(e.clientX - p.sx, e.clientY - p.sy) > 8) p.moved = true;
+        if (p.moved) { camX += dx; camY += dy; clampCam(); requestRender(); }
+    } else if (n === 2 && pinch) {
+        var ks = Object.keys(pts), a = pts[ks[0]], b = pts[ks[1]];
+        var d = Math.hypot(a.x - b.x, a.y - b.y);
+        if (pinch.d > 10) zoomAt((a.x + b.x) / 2, (a.y + b.y) / 2, pinch.ts * d / pinch.d);
+        camX += dx / 2; camY += dy / 2; clampCam(); requestRender();
+    }
+});
+function pointerEnd(e) {
+    var p = pts[e.pointerId]; if (!p) return;
+    var n = npts();
+    if (n === 1 && !p.moved && !painting && !holdPos && now() - p.t < 600) tap(p.x, p.y);
+    delete pts[e.pointerId];
+    if (npts() < 2) pinch = null;
+    if (npts() === 0) { painting = false; holdPos = null; clearInterval(holdT); }
+}
+cv.addEventListener('pointerup', pointerEnd);
+cv.addEventListener('pointercancel', pointerEnd);
+cv.addEventListener('wheel', function (e) { e.preventDefault(); zoomAt(e.clientX, e.clientY, ts * (e.deltaY < 0 ? 1.12 : 0.89)); }, { passive: false });
 
-// =====================================================
-//  ONLINE (servidor): jogadores, notícias, chat, efeitos
-// =====================================================
-var evt = null, online = false, solo = false, roomPlayers = [], logs = [], counts = {};
-var chat = { base: [], brasil: [], ch: 'base', open: false, unread: 0 };
-
-function setOnlineLine(t) { $('online-line').innerText = t; }
-
-function post(path, obj) {
-    if (!SERVER_URL || !online) return;
-    try {
-        fetch(SERVER_URL + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) }).catch(function () {});
-    } catch (e) { /* ignora */ }
+function tap(px, py) {
+    if (BT || SC) return;
+    var t = tileAt(px, py);
+    if (placing) {
+        if (placing.type === 'wall' && !placing.move) return;
+        var s = DEF[placing.type].size;
+        placing.gx = Math.round(t.fx - s / 2); placing.gy = Math.round(t.fy - s / 2);
+        updatePlaceBar(); requestRender(); return;
+    }
+    select(bAt(t.x, t.y));
 }
 
-function startOnline() {
-    if (evt) { evt.close(); evt = null; }
-    online = false; solo = false; roomPlayers = [];
-    if (!SERVER_URL) { solo = true; setOnlineLine("🌐 Modo solo (abra o jogo pelo servidor para jogar com outras pessoas)"); localWelcome(); return; }
-    if (!window.EventSource) { solo = true; setOnlineLine("🌐 Este navegador não suporta o modo online (modo solo)"); localWelcome(); return; }
-    setOnlineLine("🌐 Conectando...");
-    var url = SERVER_URL + "/events?id=" + encodeURIComponent(me.id) + "&name=" + encodeURIComponent(me.name) +
-              "&uf=" + me.uf + "&shirt=" + me.shirt;
-    evt = new EventSource(url);
-
-    evt.onopen = function () { online = true; lastStats = ""; post("/act", { id: me.id, type: "sync", job: G.job }); postStats(); };
-    evt.addEventListener("init", function (e) {
-        var d = JSON.parse(e.data);
-        online = true;
-        if (d.you && typeof d.you.shirt === 'number') me.shirt = d.you.shirt;
-        roomPlayers = d.players || [];
-        logs = d.log || [];
-        chat.base = d.chat || []; chat.brasil = d.gchat || [];
-        counts = d.counts || {};
-        T = d.totals || null; lastStats = ""; postStats();
-        renderLogs(); renderChat(); updateUI();
+// =====================================================
+//  CONSTRUIR (Loja)
+// =====================================================
+function openShop() {
+    if (BT || SC) return;
+    cancelPlace(); select(null);
+    var h = "", cl = cLvl();
+    SHOP_ORDER.forEach(function (type) {
+        var d = DEF[type], n = countOf(type), lim = limitOf(type), c = costOf(type, 1);
+        var can = n < lim && canPay(c) && (type === 'wall' || busy() < builders());
+        var why = n >= lim ? "Limite do Centro nível " + cl + " (suba o Centro para ter mais)" : (!canPay(c) ? "Faltam recursos" : (type !== 'wall' && busy() >= builders() ? "Todos os construtores estão ocupados" : ""));
+        h += "<div class='item'><div class='t'><b>" + d.name + "</b> (" + n + "/" + lim + ")<small>" + d.desc + "</small><small>Custo: " + costText(c) + (d.time[0] ? " | Tempo: " + fmtT(d.time[0]) : " | Na hora") + "</small>" + (why ? "<small class='need'>" + why + "</small>" : "") + "</div>" +
+             "<button class='btn sm' " + (can ? "" : "disabled") + " onclick=\"startPlace('" + type + "')\">Construir</button></div>";
     });
-    evt.addEventListener("players", function (e) { roomPlayers = JSON.parse(e.data); updateUI(); });
-    evt.addEventListener("counts", function (e) { counts = JSON.parse(e.data); if ($('map-overlay').classList.contains('show')) drawMap(); });
-    evt.addEventListener("log", function (e) { logs.push(JSON.parse(e.data)); if (logs.length > 40) logs.shift(); renderLogs(); });
-    evt.addEventListener("chat", function (e) {
-        var d = JSON.parse(e.data);
-        chat[d.ch].push(d.m); if (chat[d.ch].length > 60) chat[d.ch].shift();
-        if (!chat.open || chat.ch !== d.ch) { if (d.m.id !== me.id) { chat.unread++; updateBadge(); } }
-        if (chat.open && chat.ch === d.ch) renderChat();
-    });
-    evt.addEventListener("totals", function (e) { T = JSON.parse(e.data); updateUI(); });
-    evt.addEventListener("fx", function (e) { applyFx(JSON.parse(e.data).type); });
-    evt.addEventListener("pos", function (e) { var d = JSON.parse(e.data); POS[d.id] = { x: d.x, y: d.y, t: Date.now() }; });
-    evt.onerror = function () { online = false; setOnlineLine("🌐 Servidor fora do ar, tentando reconectar..."); };
+    $('shop-body').innerHTML = h;
+    $('shop').classList.add('show');
+}
+function closeModals() { ['shop', 'log', 'army', 'atk', 'chat'].forEach(function (id) { $(id).classList.remove('show'); }); chatOpen = false; }
 
-    if (!pingStarted) {
-        pingStarted = true;
-        setInterval(function () { try { fetch(SERVER_URL + "/ping").catch(function () {}); } catch (e) { /* ignora */ } }, 240000);
+function startPlace(type) {
+    closeModals();
+    var s = DEF[type].size, ctr = tileAt(vw / 2, vh / 2);
+    placing = { type: type, gx: Math.round(ctr.fx - s / 2), gy: Math.round(ctr.fy - s / 2) };
+    if (type !== 'wall') {
+        outer: for (var r = 0; r < 12; r++) for (var j = -r; j <= r; j++) for (var i = -r; i <= r; i++) {
+            if (Math.max(Math.abs(i), Math.abs(j)) !== r) continue;
+            if (freeSpot(type, placing.gx + i, placing.gy + j)) { placing.gx += i; placing.gy += j; break outer; }
+        }
+    }
+    updatePlaceBar(); requestRender();
+}
+function updatePlaceBar() {
+    var e = $('place');
+    if (!placing) { e.style.display = 'none'; return; }
+    var d = DEF[placing.type], c = placing.move ? null : costOf(placing.type, 1), ok;
+    e.style.display = 'block';
+    if (placing.type === 'wall' && !placing.move) {
+        $('place-txt').innerHTML = "<b>Muros</b> (" + countOf('wall') + "/" + limitOf('wall') + ") - toque ou arraste o dedo no mapa<br>Cada um custa " + costText(c);
+        $('place-ok').style.display = 'none'; return;
+    }
+    ok = freeSpot(placing.type, placing.gx, placing.gy);
+    $('place-ok').style.display = ''; $('place-ok').disabled = !ok;
+    $('place-ok').innerText = placing.move ? 'Mover para cá' : 'Construir';
+    $('place-txt').innerHTML = "<b>" + (placing.move ? "Mover " : "") + d.name + "</b>: toque no mapa para escolher o lugar<br>" + (ok ? (placing.move ? "Mover é de graça" : "Custo: " + costText(c)) : "<span class='need'>Lugar ocupado</span>");
+}
+function cancelPlace() {
+    if (placing && placing.move) { placing.move.moving = false; buildOcc(); }
+    placing = null; updatePlaceBar(); requestRender();
+}
+function startMove() {
+    var b = sel; if (!b || BT || SC) return;
+    select(null); closeModals();
+    b.moving = true;
+    placing = { type: b.type, gx: b.x, gy: b.y, move: b };
+    buildOcc(); updatePlaceBar(); requestRender();
+}
+function confirmMove() {
+    var pl = placing; if (!pl || !pl.move) return;
+    if (!freeSpot(pl.type, pl.gx, pl.gy)) { toast("Lugar ocupado."); return; }
+    var b = pl.move; b.x = pl.gx; b.y = pl.gy; b.moving = false; placing = null;
+    buildOcc(); updatePlaceBar(); select(b); requestRender(); save();
+}
+
+function addBuilding(type, x, y) {
+    var c = costOf(type, 1), tm = DEF[type].time[0] * 1000;
+    pay(c);
+    var b = { id: S.nid++, type: type, lvl: 1, x: x, y: y, hp: DEF[type].hp[0], bEnd: tm ? now() + tm : 0, uEnd: 0, last: tm ? 0 : now() };
+    S.vil.push(b); buildOcc(); staticDirty = true; requestRender();
+    return b;
+}
+function confirmPlace() {
+    if (placing && placing.move) { confirmMove(); return; }
+    if (!placing || placing.type === 'wall') return;
+    var type = placing.type;
+    if (!freeSpot(type, placing.gx, placing.gy)) { toast("Lugar ocupado."); return; }
+    if (countOf(type) >= limitOf(type)) { toast("Limite atingido."); return; }
+    if (!canPay(costOf(type, 1))) { toast("Faltam recursos."); return; }
+    if (busy() >= builders()) { toast("Todos os construtores estão ocupados."); return; }
+    var b = addBuilding(type, placing.gx, placing.gy);
+    logAdd(DEF[type].name + " em construção (" + fmtT(DEF[type].time[0]) + ").");
+    placing = null; updatePlaceBar(); select(b); updateTop(); save();
+}
+function paintAt(px, py) {
+    var t = tileAt(px, py), key = t.x + "," + t.y;
+    if (key === lastPaintKey) return;
+    lastPaintKey = key;
+    if (!freeSpot('wall', t.x, t.y)) return;
+    if (countOf('wall') >= limitOf('wall')) { toast("Limite de muros do Centro nível " + cLvl() + "."); return; }
+    if (!canPay(costOf('wall', 1))) { toast("Faltam recursos."); return; }
+    addBuilding('wall', t.x, t.y); updatePlaceBar(); updateTop();
+}
+
+// =====================================================
+//  SELEÇÃO, MELHORAR, COLETAR, REMOVER
+// =====================================================
+function select(b) { sel = b; updateSel(); requestRender(); }
+function updateSel() {
+    var e = $('sel');
+    if (!sel || V !== S.vil || S.vil.indexOf(sel) < 0 || placing || BT || SC) { if (e.style.display !== 'none') { e.style.display = 'none'; e._h = ""; } return; }
+    var b = sel, d = DEF[b.type], h = "<h3>" + d.name + " - nível " + b.lvl + "</h3>";
+    if (building(b)) h += "<div class='info'>Em construção... falta " + fmtT((b.bEnd - now()) / 1000) + "</div>";
+    else {
+        h += "<div class='info'>Vida: " + Math.ceil(b.hp) + "/" + maxHp(b) + "</div>";
+        if (upgrading(b)) h += "<div class='info'>Melhorando para o nível " + (b.lvl + 1) + "... falta " + fmtT((b.uEnd - now()) / 1000) + "</div>";
+        if (d.rate) h += "<div class='info'>Produz " + d.rate[b.lvl - 1] + " de " + RESN[d.res] + " por hora | Guardado: " + Math.floor(stored(b)) + "/" + d.cap[b.lvl - 1] + "</div>";
+        if (b.type === 'tower') h += "<div class='info'>Dano " + d.dmg[b.lvl - 1] + " | Alcance " + d.range[b.lvl - 1] + "</div>";
+        if (b.type === 'center') h += "<div class='info'>Armazém: " + storeCap() + " de cada recurso</div>";
+        if (b.type === 'bunker') h += "<div class='info'>Guarda " + d.cap[b.lvl - 1] + " de espaço de zumbis. Abre quando inimigos chegam a " + TRIG + " quadrados.</div>";
+        if (b.type === 'cemetery') h += "<div class='info'>Libera: Zumbi" + (b.lvl >= 2 ? ", Cuspidor" : "") + (b.lvl >= 3 ? ", Escudeiro" : "") + "</div>";
+    }
+    h += "<div class='acts'>";
+    if (functional(b)) {
+        if (d.rate && stored(b) >= 1) h += "<button class='btn sm' onclick='collect(sel)'>Coletar</button>";
+        if (b.type === 'cemetery' || b.type === 'bunker') h += "<button class='btn sm gold' onclick='openArmy()'>Exército</button>";
+        if (!upgrading(b) && b.lvl < d.maxLvl && (b.type === 'center' || b.lvl < maxBuildLvl())) {
+            var uc = costOf(b.type, b.lvl + 1), okU = canPay(uc) && busy() < builders();
+            h += "<button class='btn sm alt' onclick='upgrade()' " + (okU ? "" : "disabled") + ">Melhorar (" + costText(uc) + ", " + (d.time[b.lvl] ? fmtT(d.time[b.lvl]) : "na hora") + ")</button>";
+        } else if (!upgrading(b) && b.lvl < d.maxLvl && b.type !== 'center') h += "<span class='info need'>Suba o Centro da Aldeia para melhorar mais.</span>";
+    }
+    h += "<button class='btn sm alt' onclick='startMove()'>Mover</button>";
+    if (b.type !== 'center') h += "<button class='btn sm red' onclick='removeSel()'>Remover</button>";
+    h += "<button class='btn sm alt' onclick='select(null)'>Fechar</button></div>";
+    if (e._h !== h) { e.innerHTML = h; e._h = h; }
+    e.style.display = 'block';
+}
+function upgrade() {
+    var b = sel; if (!b || upgrading(b) || b.lvl >= DEF[b.type].maxLvl) return;
+    var nl = b.lvl + 1, c = costOf(b.type, nl), tm = DEF[b.type].time[nl - 1] * 1000;
+    if (b.type !== 'center' && nl > maxBuildLvl()) { toast("Suba o Centro da Aldeia primeiro."); return; }
+    if (!canPay(c)) { toast("Faltam recursos."); return; }
+    if (busy() >= builders()) { toast("Todos os construtores estão ocupados."); return; }
+    pay(c);
+    if (tm > 0) { b.uEnd = now() + tm; logAdd(DEF[b.type].name + " melhorando para o nível " + nl + " (" + fmtT(tm / 1000) + ")."); }
+    else { b.lvl = nl; b.hp = maxHp(b); staticDirty = true; }
+    updateTop(); updateSel(); requestRender(); save();
+}
+function removeSel() {
+    var b = sel; if (!b || b.type === 'center') return;
+    if (b.type !== 'wall' && !confirm("Remover " + DEF[b.type].name + "? Você recebe de volta metade da sucata.")) return;
+    S.res.scrap = Math.min(storeCap(), S.res.scrap + Math.floor((costOf(b.type, 1).scrap || 0) / 2));
+    S.vil.splice(S.vil.indexOf(b), 1); sel = null;
+    buildOcc(); staticDirty = true; updateTop(); updateSel(); requestRender(); save();
+}
+function collect(b) {
+    if (!b) return 0;
+    var d = DEF[b.type], amt = Math.floor(stored(b));
+    if (amt < 1) { toast("Ainda não tem nada para coletar."); return 0; }
+    var space = storeCap() - S.res[d.res], take = Math.min(amt, space);
+    if (take <= 0) { toast("Armazém cheio. Suba o Centro da Aldeia."); return 0; }
+    S.res[d.res] += take;
+    if (take >= amt) b.last = now(); else b.last = now() - (amt - take) / d.rate[b.lvl - 1] * 3600000;
+    updateTop(); updateSel(); requestRender();
+    return take;
+}
+function collectAll() {
+    if (BT || SC) return;
+    var got = { food: 0, water: 0, scrap: 0 };
+    S.vil.forEach(function (b) { var d = DEF[b.type]; if (d.rate) { var t = collect(b); if (t) got[d.res] += t; } });
+    var a = []; for (var k in got) if (got[k]) a.push("+" + got[k] + " " + RESN[k]);
+    toast(a.length ? "Coletado: " + a.join(", ") : "Nada para coletar agora.");
+    save();
+}
+function openLog() {
+    if (BT || SC) return;
+    cancelPlace();
+    var h = "";
+    for (var i = S.log.length - 1; i >= 0; i--) {
+        var d = new Date(S.log[i].t);
+        h += "<div class='logline'>[" + ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2) + "] " + S.log[i].text + "</div>";
+    }
+    $('log-body').innerHTML = h || "Nada ainda.";
+    $('log').classList.add('show');
+}
+
+// =====================================================
+//  EXÉRCITO (treinar no Cemitério, morar no Bunker)
+// =====================================================
+function openArmy(keep) {
+    if (BT || SC) return;
+    if (!keep) { cancelPlace(); closeModals(); }
+    var cap = houseCap(), used = houseUsed(), h = "";
+    h += "<div><b>Bunker:</b> " + used + " / " + cap + " de espaço" + (cap ? "" : " <span class='need'>(construa um Bunker para guardar zumbis)</span>") + "</div>";
+    h += "<div class='bar2'><i style='width:" + (cap ? Math.min(100, (used + queueSpace()) / cap * 100) : 0) + "%'></i></div>";
+    if (!cemeteries().length) h += "<div class='need'>Construa um Cemitério na Loja para treinar zumbis.</div>";
+    TROOP_ORDER.forEach(function (k) {
+        var T = TROOP[k], locked = cemLvl() < T.unlock, q = S.queue.filter(function (x) { return x === k; }).length;
+        var can = !locked && canPay(T.cost) && used + queueSpace() + T.space <= cap;
+        h += "<div class='item'><div class='t'><b>" + T.name + "</b> x" + S.troops[k] + (q ? " (+" + q + " na fila)" : "") + "<small>" + T.desc + "</small>" +
+             "<small>Vida " + T.hp + " | Dano " + T.dmg + " | Espaço " + T.space + " | " + costText(T.cost) + " | " + fmtT(T.time) + "</small>" +
+             (locked ? "<small class='need'>Precisa de Cemitério nível " + T.unlock + "</small>" : "") + "</div>" +
+             "<button class='btn sm' " + (can ? "" : "disabled") + " onclick=\"trainTroop('" + k + "')\">Treinar</button></div>";
+    });
+    if (S.queue.length) {
+        h += "<div style='margin-top:8px'><b>Fila de treino:</b> " + (S.queue.length ? "(" + fmtT(TROOP[S.queue[0]].time / Math.max(1, cemeteries().length) - (now() - S.trainAt) / 1000) + " para o próximo)" : "") + "</div>";
+        S.queue.forEach(function (k, i) { h += "<div class='item'><div class='t'>" + TROOP[k].name + "</div><button class='btn sm red' onclick='cancelTrain(" + i + ")'>X</button></div>"; });
+    }
+    $('army-body').innerHTML = h; $('army').classList.add('show');
+}
+
+var walkers = [];
+function spawnWalker(type) {
+    if (V !== S.vil || BT || SC || document.hidden || walkers.length >= 14) return;
+    var cems = cemeteries(), bks = S.vil.filter(function (b) { return b.type === 'bunker' && functional(b); });
+    if (!cems.length || !bks.length) return;
+    var c = cems[Math.floor(Math.random() * cems.length)], bk = bks[0], bd = 1e9;
+    bks.forEach(function (b) { var d = Math.hypot(b.x - c.x, b.y - c.y); if (d < bd) { bd = d; bk = b; } });
+    var x = c.x + 0.5 + Math.random(), y = c.y + 2.6, tries = 0;
+    while (bAt(Math.floor(x), Math.floor(y)) && tries++ < 12) { x = c.x - 0.6 + Math.random() * 3.4; y = c.y + 2.2 + (tries % 3) * 0.6; }
+    walkers.push({ id: 900 + Math.floor(Math.random() * 1e6), type: type, side: 'n', x: x, y: y, hp: 1, max: 1, path: null, pi: 0, bk: bk, age: 0, side2: 'd', tried: false });
+    ensureLoop();
+}
+function stepWalkers(dt) {
+    for (var i = walkers.length - 1; i >= 0; i--) {
+        var w = walkers[i]; w.age += dt;
+        if (!w.tried) { w.tried = true; w.path = findPath(w, w.bk, false, 0.62, 'd'); w.pi = 0; }
+        if (dRectP(w.x, w.y, w.bk) <= 0.7 || w.age > 45 || (!w.path && w.age > 2)) { walkers.splice(i, 1); dirty = true; continue; }
+        if (w.path) {
+            var T = TROOP[w.type], rem = T.sp * 1.2 * dt, p = w.path;
+            while (w.pi < p.length && rem > 0) {
+                var wp = p[w.pi], wx = (wp % GRID) + 0.5, wy = ((wp / GRID) | 0) + 0.5, dx = wx - w.x, dy = wy - w.y, d = Math.sqrt(dx * dx + dy * dy);
+                if (d <= rem) { w.x = wx; w.y = wy; rem -= d; w.pi++; } else { w.x += dx / d * rem; w.y += dy / d * rem; rem = 0; }
+            }
+            if (w.pi >= p.length) w.path = null;
+        }
     }
 }
-var pingStarted = false;
-var welcomed = false;
-function localWelcome() { if (!welcomed) { welcomed = true; logs.push({ t: Date.now(), text: "👋 Seja bem-vindo à base, " + me.name + "!" }); renderLogs(); } }
 
-function getPlayers() {
-    var list = (online && roomPlayers.length) ? roomPlayers.slice(0, 16) : [];
-    var hasMe = false;
-    list.forEach(function (p) { if (p.id === me.id) { p.job = G.job; p.shirt = me.shirt; p.gb = B.goldBat ? 1 : 0; hasMe = true; } });
-    if (!hasMe) list.unshift({ id: me.id, name: me.name, shirt: me.shirt, job: G.job, gb: B.goldBat ? 1 : 0 });
+// =====================================================
+//  BASES DE BOTS
+// =====================================================
+var BOT_NAMES = ["Zé do Brejo", "Dona Marta", "Capitão Z", "Tio Chico", "Mestre Ricardão", "Sargento Lima", "Vovó Nena", "Doutor Mata-Mato", "Cabo Pereira", "Seu Raimundo", "Madame Z", "Professor Tomás"];
+function genBot(level, seed) {
+    var r = rng(seed), v = [], i;
+    function add(type, x, y, l) { v.push({ id: v.length + 1, type: type, lvl: l, x: x, y: y, hp: DEF[type].hp[l - 1], bEnd: 0, uEnd: 0, last: 0 }); }
+    function fits(type, x, y) {
+        var s = DEF[type].size;
+        if (x < 1 || y < 1 || x + s > GRID - 1 || y + s > GRID - 1) return false;
+        for (var k = 0; k < v.length; k++) { var o = v[k], os = DEF[o.type].size; if (x < o.x + os && o.x < x + s && y < o.y + os && o.y < y + s) return false; }
+        return true;
+    }
+    var bl = Math.min(3, level);
+    add("center", 13, 13, level);
+    var plan = [
+        ["bunker", [[17, 13], [9, 13]], 1], ["tower", [[10, 10], [17, 10], [10, 17], [17, 17], [13, 7], [13, 20]], level + 1 > 4 ? 4 : level + 1],
+        ["market", [[9, 16], [19, 17]], level >= 3 ? 2 : 1], ["well", [[19, 9], [7, 9]], level >= 3 ? 2 : 1], ["cemetery", [[21, 13]], 1], ["hut", [[6, 17]], 1]
+    ];
+    plan.forEach(function (p) {
+        var n = 0;
+        for (i = 0; i < p[1].length && n < p[2]; i++) {
+            var jx = Math.round((r() - 0.5) * 2), jy = Math.round((r() - 0.5) * 2), x = p[1][i][0] + jx, y = p[1][i][1] + jy;
+            if (fits(p[0], x, y)) { add(p[0], x, y, p[0] === "hut" ? 1 : Math.max(1, Math.min(DEF[p[0]].maxLvl, bl))); n++; }
+            else if (fits(p[0], p[1][i][0], p[1][i][1])) { add(p[0], p[1][i][0], p[1][i][1], p[0] === "hut" ? 1 : Math.max(1, Math.min(DEF[p[0]].maxLvl, bl))); n++; }
+        }
+    });
+    var x0 = 30, y0 = 30, x1 = 0, y1 = 0;
+    v.forEach(function (b) { var s = DEF[b.type].size; x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + s - 1); y1 = Math.max(y1, b.y + s - 1); });
+    x0 = Math.max(1, x0 - 1); y0 = Math.max(1, y0 - 1); x1 = Math.min(GRID - 2, x1 + 1); y1 = Math.min(GRID - 2, y1 + 1);
+    var gapTop = x0 + 3 + Math.floor(r() * (x1 - x0 - 6));
+    for (var x = x0; x <= x1; x++) { if (x !== gapTop && fits("wall", x, y0)) add("wall", x, y0, Math.max(1, bl - 1)); if (fits("wall", x, y1)) add("wall", x, y1, Math.max(1, bl - 1)); }
+    for (var y = y0 + 1; y < y1; y++) { if (fits("wall", x0, y)) add("wall", x0, y, Math.max(1, bl - 1)); if (fits("wall", x1, y)) add("wall", x1, y, Math.max(1, bl - 1)); }
+    var troops = { zombie: 3 + level * 2, spitter: level >= 2 ? level : 0, tank: level >= 3 ? level - 1 : 0 };
+    var rs = Math.round(150 * level * level * (0.8 + r() * 0.4));
+    return { id: "bot-" + seed, name: BOT_NAMES[Math.floor(r() * BOT_NAMES.length)], bot: true, trophies: 60 + level * 90 + Math.floor(r() * 40), lvl: level, vil: v, troops: troops, res: { food: rs, water: rs, scrap: rs } };
+}
+function botLevelForMe() { return Math.max(1, Math.min(4, Math.round(cLvl() * 0.7 + S.trophies / 350))); }
+
+function botArmy(budget) { // lista de zumbis do ataque de bots
+    var list = [], cl = cLvl(), left = budget;
+    while (left >= 1) {
+        var roll = Math.random(), type = 'zombie';
+        if (cl >= 3 && roll > 0.82 && left >= 5) type = 'tank';
+        else if (cl >= 2 && roll > 0.55 && left >= 2) type = 'spitter';
+        list.push(type); left -= TROOP[type].space;
+    }
     return list;
 }
 
-// ---------- notícias (logs) ----------
-var notes = []; // avisos só seus (ex.: ataque enquanto você estava off-line)
-function addNote(text) {
-    notes.push({ t: Date.now(), text: text });
-    if (notes.length > 10) notes.shift();
-    renderLogs();
+// =====================================================
+//  BATALHA (mesma simulação para ataque de bots, defesa e ataque seu)
+// =====================================================
+function bCenter(b) { var s = DEF[b.type].size; return { x: b.x + s / 2, y: b.y + s / 2 }; }
+function distRect(z, b) {
+    var s = DEF[b.type].size, dx = Math.max(b.x - z.x, 0, z.x - (b.x + s)), dy = Math.max(b.y - z.y, 0, z.y - (b.y + s));
+    return Math.sqrt(dx * dx + dy * dy);
 }
-function renderLogs() {
-    var p = $('news-panel');
-    p.innerHTML = "";
-    var all = logs.concat(notes).sort(function (x, y) { return x.t - y.t; });
-    for (var i = all.length - 1; i >= 0; i--) {
-        var d = new Date(all[i].t), div = document.createElement('div');
-        div.textContent = "[" + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2) + "] " + all[i].text;
-        p.appendChild(div);
+function addUnit(side, type, x, y, hpMul) {
+    var T = TROOP[type], hp = T.hp * (hpMul || 1);
+    BT.us.push({ id: BT.nid++, side: side, type: type, x: x, y: y, hp: hp, max: hp, tgt: null, tu: null, rt: Math.random() * 0.3, pt: 0, pr: Math.random() * 0.5, path: null, pi: 0, dead: false, hx: x, hy: y, bad: null });
+}
+
+// ---------- A*: acha o caminho em volta das construções (muros só são quebrados se não houver outro jeito) ----------
+var NN = GRID * GRID, gS = new Float32Array(NN), par = new Int16Array(NN), stp = new Uint32Array(NN), clo = new Uint32Array(NN), stampN = 0;
+var hn = new Int16Array(NN * 12), hv = new Float32Array(NN * 12), hs = 0;
+var DXs = [1, -1, 0, 0, 1, 1, -1, -1], DYs = [0, 0, 1, -1, 1, -1, 1, -1];
+function hpush(n, v) { if (hs >= hn.length - 2) return; var i = hs++; while (i > 0) { var p = (i - 1) >> 1; if (hv[p] <= v) break; hn[i] = hn[p]; hv[i] = hv[p]; i = p; } hn[i] = n; hv[i] = v; }
+function hpop() {
+    var top = hn[0]; hs--;
+    if (hs > 0) {
+        var n = hn[hs], v = hv[hs], i = 0;
+        while (true) { var l = i * 2 + 1; if (l >= hs) break; var r = l + 1, c = (r < hs && hv[r] < hv[l]) ? r : l; if (hv[c] >= v) break; hn[i] = hn[c]; hv[i] = hv[c]; i = c; }
+        hn[i] = n; hv[i] = v;
     }
+    return top;
 }
-function jobText(job, name) {
-    return { guarda: "🛡️ " + name + " está de guarda pra proteger a base dos zumbis!",
-             coletador: "🌾 " + name + " está catando alimentos e sucatas!",
-             barricada: "🔨 " + name + " montou barricadas!",
-             medico: "🩺 " + name + " regenerou o HP de todos!" }[job] || "";
-}
-function localLog(text) { logs.push({ t: Date.now(), text: text }); if (logs.length > 40) logs.shift(); renderLogs(); }
-
-// ---------- chat ----------
-function toggleChat() {
-    chat.open = !chat.open;
-    $('chat-panel').classList.toggle('show', chat.open);
-    if (chat.open) { chat.unread = 0; renderChat(); setTimeout(function () { $('chat-input').focus(); }, 80); }
-    updateBadge();
-}
-function setChatCh(ch) {
-    chat.ch = ch;
-    $('tab-base').className = ch === 'base' ? 'sel' : '';
-    $('tab-brasil').className = ch === 'brasil' ? 'sel' : '';
-    renderChat();
-}
-function updateBadge() {
-    var b = $('chat-badge');
-    b.style.display = chat.unread > 0 ? 'block' : 'none';
-    b.innerText = chat.unread > 9 ? "9+" : chat.unread;
-}
-function renderChat() {
-    var box = $('chat-msgs');
-    box.innerHTML = "";
-    if (!online) { var s = document.createElement('div'); s.className = 'cm sys'; s.textContent = "O chat só funciona com o servidor online."; box.appendChild(s); return; }
-    chat[chat.ch].forEach(function (m) {
-        var d = document.createElement('div'); d.className = 'cm';
-        var t = new Date(m.t), b = document.createElement('b');
-        b.textContent = m.n + (chat.ch === 'brasil' ? " (" + m.uf + ")" : "");
-        b.style.color = m.id === me.id ? '#ffe082' : 'hsl(' + m.h + ',70%,70%)';
-        d.appendChild(document.createTextNode("[" + ("0" + t.getHours()).slice(-2) + ":" + ("0" + t.getMinutes()).slice(-2) + "] "));
-        d.appendChild(b);
-        d.appendChild(document.createTextNode(": " + m.text));
-        box.appendChild(d);
-    });
-    box.scrollTop = box.scrollHeight;
-}
-function sendChat() {
-    var inp = $('chat-input'), text = inp.value.trim();
-    if (!text) return;
-    if (!online) { toast("O chat precisa do servidor online."); return; }
-    post("/chat", { id: me.id, ch: chat.ch, text: text });
-    inp.value = "";
-}
-
-// =====================================================
-//  SOM (sintetizado, sem arquivos): grilos + fogueira às 18h
-// =====================================================
-var AUD = { ctx: null, on: true, master: null, noise: null, fireGain: null, rainGain: null, cricketGain: null, crackleGain: null };
-
-function initAudio() {
-    if (AUD.ctx) return;
-    var AC = window.AudioContext || window.webkitAudioContext;
-    if (!AC) return;
-    try {
-        var c = AUD.ctx = new AC();
-        AUD.master = c.createGain(); AUD.master.gain.value = AUD.on ? 0.6 : 0; AUD.master.connect(c.destination);
-        var len = c.sampleRate * 2, buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
-        for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-        AUD.noise = buf;
-        function loop(filterType, freq, gainRef) {
-            var s = c.createBufferSource(); s.buffer = buf; s.loop = true;
-            var f = c.createBiquadFilter(); f.type = filterType; f.frequency.value = freq;
-            var g = c.createGain(); g.gain.value = 0;
-            s.connect(f); f.connect(g); g.connect(AUD.master); s.start();
-            return g;
+function dRectP(px, py, b) { var s = DEF[b.type].size, dx = Math.max(b.x - px, 0, px - (b.x + s)), dy = Math.max(b.y - py, 0, py - (b.y + s)); return Math.sqrt(dx * dx + dy * dy); }
+function solid(x, y, side) { var o = occ[y * GRID + x]; return o && !o.dead && (o.type !== 'wall' || side === 'a'); }
+function findPath(u, target, isUnit, stop, side) {
+    stampN++;
+    var sx = Math.max(0, Math.min(GRID - 1, Math.floor(u.x))), sy = Math.max(0, Math.min(GRID - 1, Math.floor(u.y))), s0 = sy * GRID + sx;
+    var tb = isUnit ? null : target, tx = isUnit ? target.x : 0, ty = isUnit ? target.y : 0, wallCost = side === 'a' ? 9 : 0.4;
+    hs = 0; gS[s0] = 0; stp[s0] = stampN; par[s0] = -1;
+    hpush(s0, 0);
+    var best = -1, iter = 0;
+    while (hs > 0 && iter++ < 1400) {
+        var cur = hpop();
+        if (clo[cur] === stampN) continue;
+        clo[cur] = stampN;
+        var cxx = cur % GRID, cyy = (cur / GRID) | 0, px = cxx + 0.5, py = cyy + 0.5;
+        var dh = tb ? dRectP(px, py, tb) : Math.sqrt((px - tx) * (px - tx) + (py - ty) * (py - ty));
+        if (dh <= stop) { best = cur; break; }
+        for (var k = 0; k < 8; k++) {
+            var dx = DXs[k], dy = DYs[k], nx = cxx + dx, ny = cyy + dy;
+            if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) continue;
+            var ni = ny * GRID + nx;
+            if (clo[ni] === stampN) continue;
+            var step = 1, o = occ[ni];
+            if (dx !== 0 && dy !== 0) { if (solid(cxx + dx, cyy, side) || solid(cxx, cyy + dy, side)) continue; step = 1.414; }
+            if (o && !o.dead) { if (o.type === 'wall') step += wallCost; else continue; }
+            var g = gS[cur] + step;
+            if (stp[ni] !== stampN || g < gS[ni]) {
+                stp[ni] = stampN; gS[ni] = g; par[ni] = cur;
+                var qx = nx + 0.5, qy = ny + 0.5, hh = tb ? dRectP(qx, qy, tb) : Math.sqrt((qx - tx) * (qx - tx) + (qy - ty) * (qy - ty));
+                hpush(ni, g + Math.max(0, hh - stop));
+            }
         }
-        AUD.fireGain = loop('lowpass', 500);
-        AUD.rainGain = loop('highpass', 1500);
-        AUD.cricketGain = c.createGain(); AUD.cricketGain.gain.value = 0.05; AUD.cricketGain.connect(AUD.master);
-        AUD.crackleGain = c.createGain(); AUD.crackleGain.gain.value = 0.5; AUD.crackleGain.connect(AUD.master);
-    } catch (e) { AUD.ctx = null; }
-}
-function chirp() {
-    var c = AUD.ctx, t = c.currentTime, o = c.createOscillator(), g = c.createGain();
-    o.type = 'sine'; o.frequency.value = 4000 + Math.random() * 600; g.gain.value = 0;
-    o.connect(g); g.connect(AUD.cricketGain);
-    var n = 2 + Math.floor(Math.random() * 3);
-    for (var i = 0; i < n; i++) {
-        var s = t + i * 0.07;
-        g.gain.setValueAtTime(0, s); g.gain.linearRampToValueAtTime(1, s + 0.015); g.gain.linearRampToValueAtTime(0, s + 0.045);
     }
-    o.start(t); o.stop(t + n * 0.07 + 0.05);
+    if (best < 0) return null;
+    var path = [];
+    for (var c2 = best; c2 !== s0 && c2 !== -1; c2 = par[c2]) path.push(c2);
+    path.reverse();
+    return path;
 }
-function crackle() {
-    var c = AUD.ctx, t = c.currentTime, s = c.createBufferSource();
-    s.buffer = AUD.noise;
-    var bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1200 + Math.random() * 2500; bp.Q.value = 1.5;
-    var g = c.createGain();
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5 + Math.random() * 0.5, t + 0.005);
-    g.gain.exponentialRampToValueAtTime(0.001, t + 0.03 + Math.random() * 0.05);
-    s.connect(bp); bp.connect(g); g.connect(AUD.crackleGain);
-    s.start(t, Math.random() * 1.5, 0.12);
-}
-function audioTick() {
-    if (!AUD.ctx || !AUD.on || document.hidden) return;
-    var lit = fireOn(nowH()), rain = isRaining(), t = AUD.ctx.currentTime;
-    AUD.fireGain.gain.setTargetAtTime(lit ? 0.05 : 0, t, 0.5);
-    AUD.rainGain.gain.setTargetAtTime(rain ? 0.06 : 0, t, 0.5);
-    if (lit) {
-        if (Math.random() < 0.35) chirp();
-        if (Math.random() < 0.35) chirp();
-        if (Math.random() < (rain ? 0.2 : 0.5)) crackle();
+// anda pelo caminho; se tiver um muro no meio, quebra o muro
+function followPath(u, dt) {
+    var p = u.path; if (!p) return;
+    var T = TROOP[u.type], rem = T.sp * dt;
+    while (u.pi < p.length && rem > 0) {
+        var wp = p[u.pi], wx = (wp % GRID) + 0.5, wy = ((wp / GRID) | 0) + 0.5, o = occ[wp];
+        if (o && !o.dead) {
+            if (o.type === 'wall' && u.side === 'a') {
+                if (Math.hypot(wx - u.x, wy - u.y) > 1.2) { /* chega perto */ }
+                else { hit(o, T.dmg * dt); return; }
+            } else if (o.type !== 'wall') { u.path = null; return; }
+        }
+        var dx = wx - u.x, dy = wy - u.y, d = Math.sqrt(dx * dx + dy * dy);
+        if (d <= rem) { u.x = wx; u.y = wy; rem -= d; u.pi++; }
+        else { u.x += dx / d * rem; u.y += dy / d * rem; rem = 0; }
     }
+    if (u.pi >= p.length) u.path = null;
 }
-setInterval(audioTick, 300);
-function toggleSound() {
-    AUD.on = !AUD.on;
-    $('sound-btn').innerText = AUD.on ? "🔊" : "🔇";
-    initAudio();
-    if (AUD.ctx) { if (AUD.ctx.state === 'suspended') AUD.ctx.resume(); AUD.master.gain.value = AUD.on ? 0.6 : 0; }
-}
-
-// =====================================================
-//  EMPREGOS, AÇÕES, NOITE, TROCADOR
-// =====================================================
-var JOBS = {
-    coletador: { ico: "🌾", nome: "Coletor", desc: "Cata alimentos e sucatas para você (e aumenta o total da base).", period: 60 },
-    barricada: { ico: "🔨", nome: "Barricadeiro", desc: "Monta barricadas: aumenta a sua defesa.", period: 60 },
-    guarda: { ico: "⚔️", nome: "Guarda", desc: "Protege a base dos zumbis às 21:00: cada guarda reduz o dano da horda de todos da base.", period: 300 },
-    medico: { ico: "🩺", nome: "Médico", desc: "Regenera o HP de todos da base.", period: 120 }
-};
-var lastJobChange = 0, jobClock = 0, sec = 0;
-
-function buildJobs() {
-    var box = $('jobs'); box.innerHTML = "";
-    Object.keys(JOBS).forEach(function (k) {
-        var b = document.createElement('button');
-        b.className = 'job' + (G.job === k ? ' sel' : '');
-        b.innerHTML = JOBS[k].ico + " " + JOBS[k].nome;
-        b.onclick = function () { chooseJob(k); };
-        box.appendChild(b);
-    });
-    $('job-info').innerText = G.job ? JOBS[G.job].desc : "Você ainda não tem emprego. Escolha um!";
-}
-
-function chooseJob(j) {
-    if (G.job === j) return;
-    if (Date.now() - lastJobChange < 8000) { toast("Calma! Espere alguns segundos para trocar de emprego."); return; }
-    lastJobChange = Date.now();
-    G.job = j; jobClock = 0;
-    if (online) post("/act", { id: me.id, type: "job", job: j });
-    else localLog(jobText(j, me.name));
-    buildJobs(); updateUI(); saveLocal();
-}
-
-// ---------- seus recursos ----------
-var ITEMS = [
-    { id: "racao", ico: "🍖", nome: "Ração", preco: 4, desc: "+20 comida e +20 água" },
-    { id: "kit", ico: "🩹", nome: "Kit médico", preco: 6, desc: "+40 de vida" },
-    { id: "reforco", ico: "🧱", nome: "Reforço", preco: 8, desc: "+30 de defesa" },
-    { id: "bastao", ico: "🏏", nome: "Bastão dourado", preco: 12, desc: "Seu bastão de guarda fica dourado" }
-];
-
-function personalTick() { // a cada 5 segundos
-    if (B.hp <= 0) return;
-    B.food += 1; B.water += 1; B.scrap += 1; // todo mundo cata um pouco
-    if (G.job === "coletador") { B.food += 3; B.water += 3; B.scrap += 2; }
-    else if (G.job === "barricada") B.defense += 3;
-    else if (G.job === "medico") B.hp = Math.min(100, B.hp + 2);
-    ["food", "water", "scrap", "defense"].forEach(function (k) { B[k] = Math.min(9999, B[k]); });
-}
-
-function applyFx(type) { // efeito vindo de outro jogador da base
-    if (type === "heal") B.hp = Math.min(100, B.hp + 10);
-    updateUI();
-}
-
-function doAction() { // ação periódica do emprego
-    if (!G.job) return;
-    if (G.job === "coletador") { B.scrap += 4; B.food += 4; B.water += 4; }
-    else if (G.job === "barricada") B.defense += 6;
-    if (online) post("/act", { id: me.id, type: "action" }); // o servidor avisa a base (e o médico cura todos)
-    else { localLog(jobText(G.job, me.name)); if (G.job === "medico") applyFx("heal"); }
-}
-
-function clickScrap() { B.scrap += 1; updateUI(); }
-
-// quantos "21:00" passaram desde que você saiu
-function missedRaids(lastSeen) {
-    var now = Date.now(), n = 0, d = new Date(lastSeen);
-    d.setHours(21, 0, 0, 0);
-    if (d.getTime() <= lastSeen) d.setDate(d.getDate() + 1);
-    while (d.getTime() <= now) { n++; d.setDate(d.getDate() + 1); }
-    return n;
-}
-
-// os zumbis atacam mesmo com você off-line: o dano é aplicado quando você volta
-function applyOfflineRaids() {
-    if (!G.lastSeen) return;
-    var n = Math.min(missedRaids(G.lastSeen), 3), lostDef = 0, lostHp = 0;
-    if (n <= 0) return;
-    for (var i = 0; i < n; i++) {
-        var dano = Math.floor(Math.random() * 20) + 25; // sem guardas: ninguém estava lá
-        if (B.defense >= dano) { B.defense -= dano; lostDef += dano; }
-        else { var extra = dano - B.defense; lostDef += B.defense; B.defense = 0; B.hp = Math.max(0, B.hp - extra); lostHp += extra; }
+function pickTarget(z) {
+    var best = null, bd = 1e9, pass, i;
+    for (pass = 0; pass < 2 && !best; pass++) {
+        for (i = 0; i < V.length; i++) {
+            var b = V[i];
+            if (b.dead || b.hp <= 0 || b === z.bad) continue;
+            if ((pass === 0) === (b.type === 'wall')) continue;
+            var c = bCenter(b), d = (c.x - z.x) * (c.x - z.x) + (c.y - z.y) * (c.y - z.y);
+            if (d < bd) { bd = d; best = b; }
+        }
     }
-    if (new Date().getHours() >= 21) B.lastRaid = todayKey(); // o ataque de hoje já foi contado
-    var fell = B.hp <= 0;
-    if (fell) { B.hp = 30; B.defense = 10; }
-    addNote("🧟 Os zumbis atacaram a sua base quando você estava off-line!");
-    addNote("💥 " + (n > 1 ? n + " noites: " : "") + "-" + lostDef + " de defesa" + (lostHp ? " e -" + lostHp + " de vida" : "") + (fell ? ". A base caiu e você voltou com pouca vida." : "."));
-    toast("🧟 Os zumbis atacaram a sua base quando você estava off-line!");
+    return best;
 }
-
-function countGuards() { return getPlayers().filter(function (p) { return p.job === "guarda"; }).length; }
-
-function nightPhase() { // 21:00: jantar + horda (os guardas da base protegem todos)
-    var need = 2;
-    if (B.food >= need && B.water >= need) { B.food -= need; B.water -= need; }
-    else { B.hp = Math.max(0, B.hp - 25); toast("🚨 Faltou comida ou água no jantar das 21h! (-25% HP)"); }
-    var dano = Math.floor(Math.random() * 20) + 25;
-    dano = Math.max(5, dano - countGuards() * 15);
-    var ok;
-    if (B.defense >= dano) { B.defense -= dano; ok = true; toast("🛡️ As barricadas seguraram a horda!"); }
-    else { B.hp = Math.max(0, B.hp - (dano - B.defense)); B.defense = 0; ok = false; toast("🚨 Os zumbis invadiram a base!"); }
-    if (online) post("/act", { id: me.id, type: ok ? "raid_ok" : "raid_fail" });
-    else localLog(ok ? "🛡️ As barricadas de " + me.name + " seguraram a horda!" : "🚨 A horda invadiu a base de " + me.name + "!");
-    if (B.hp <= 0) { B.hp = 30; B.defense = 10; toast("💀 Você caiu... e voltou com pouca vida."); }
+function nearestUnit(u, side, maxD, tankFirst) {
+    var best = null, bd = maxD * maxD, tankB = null, tbd = maxD * maxD, us = BT.us;
+    for (var i = 0; i < us.length; i++) {
+        var o = us[i];
+        if (o.dead || o.side !== side) continue;
+        var d = (o.x - u.x) * (o.x - u.x) + (o.y - u.y) * (o.y - u.y);
+        if (d < bd) { bd = d; best = o; }
+        if (tankFirst && o.type === 'tank' && d < tbd) { tbd = d; tankB = o; }
+    }
+    return tankB || best;
 }
-
-// manda seus recursos para o servidor somar o total da base
-var lastStats = "";
-function postStats() {
-    if (!online) return;
-    var o = { id: me.id, food: B.food, water: B.water, scrap: B.scrap, defense: B.defense, silver: B.silver, gb: B.goldBat ? 1 : 0 };
-    var str = JSON.stringify(o);
-    if (str === lastStats) return;
-    lastStats = str;
-    post("/stats", o);
-}
-
-// ---------- trocador (quartas) e moeda de prata (sua) ----------
-function tradeScrap() {
-    if (!isWed()) { toast("O trocador só aparece às quartas-feiras."); return; }
-    if (B.scrap < 10) { toast("Você precisa de 10 sucatas."); return; }
-    B.scrap -= 10; B.silver += 5;
-    if (online) post("/act", { id: me.id, type: "trade_log" });
-    else localLog("🥈 " + me.name + " trocou 10 sucatas por 5 moedas de prata com o trocador!");
-    toast("Trocou 10 sucatas por 5 moedas de prata 🥈"); updateUI();
-}
-function buyItem(id) {
-    if (!isWed()) { toast("O trocador só aparece às quartas-feiras."); return; }
-    var it = ITEMS.filter(function (i) { return i.id === id; })[0];
-    if (!it) return;
-    if (id === "bastao" && B.goldBat) { toast("Você já tem o bastão dourado."); return; }
-    if (B.silver < it.preco) { toast("Moedas de prata insuficientes."); return; }
-    B.silver -= it.preco;
-    if (id === "racao") { B.food += 20; B.water += 20; }
-    else if (id === "kit") B.hp = Math.min(100, B.hp + 40);
-    else if (id === "reforco") B.defense += 30;
-    else if (id === "bastao") B.goldBat = true;
-    if (online) post("/act", { id: me.id, type: "buy_log", item: id });
-    else localLog("🛒 " + me.name + " comprou " + it.nome + "!");
-    toast("Comprou: " + it.nome); updateUI();
-}
-var traderKey = "";
-function renderTrader() {
-    var wed = isWed(), key = wed + "|" + B.silver + "|" + B.goldBat;
-    if (key === traderKey) return;
-    traderKey = key;
-    var box = $('trader-box');
-    if (!wed) { box.innerHTML = "<strong>🧙 Trocador</strong><div style='margin-top:6px;color:#999;'>O trocador de prata só aparece às quartas-feiras. Junte sucatas até lá!</div>"; return; }
-    var h = "<strong>🧙 Trocador chegou à base!</strong>" +
-            "<div class='item-row'><div>10 sucatas → 5 moedas de prata</div><button class='btn-sm' onclick='tradeScrap()'>Trocar</button></div>";
-    ITEMS.forEach(function (it) {
-        h += "<div class='item-row'><div>" + it.ico + " " + it.nome + " <small>" + it.desc + "</small></div>" +
-             "<button class='btn-sm' onclick=\"buyItem('" + it.id + "')\">" + it.preco + " 🥈</button></div>";
-    });
-    box.innerHTML = h;
-}
-
-// =====================================================
-//  NÍVEL DA BASE
-// =====================================================
-var LEVEL_NAMES = ["", "Barraca", "Cabana de madeira", "Casa abandonada", "Loja abandonada"];
-var lastLevel = 1;
-function lvlFromN(n) { return n >= 10 ? 4 : (n >= 5 ? 3 : (n >= 3 ? 2 : 1)); }
-
-// =====================================================
-//  CENA 2D DA BASE
-// =====================================================
-var bc = $('base-canvas'), ctx = bc.getContext('2d');
-
-function hrand(n) { var x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
-function hashStr(str) { var h = 2166136261; for (var i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
-function rng(seed) { var s = seed >>> 0; return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
-
-function rect(x, y, w, h, col) { ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y), Math.max(1, Math.round(w)), Math.max(1, Math.round(h))); }
-function circ(x, y, r, col) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, 6.2832); ctx.fill(); }
-function tri(ax, ay, bx, by, cx, cy) { ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(cx, cy); ctx.closePath(); ctx.fill(); }
-
-var DECOR = [], TREEDEF = [];
-function genDecor() {
-    var r = rng(hashStr(me.uf || "BR")), i;
-    DECOR = []; TREEDEF = [];
-    for (i = 0; i < 9; i++) TREEDEF.push({ x: (i + 0.3 + r() * 0.4) / 9, h: 22 + r() * 14 });
-    for (i = 0; i < 14; i++) DECOR.push({ t: 'patch', x: r(), y: r(), s: 3 + r() * 5 });
-    for (i = 0; i < 34; i++) DECOR.push({ t: 'grass', x: r(), y: r(), s: 0.8 + r() * 0.9 });
-    for (i = 0; i < 12; i++) DECOR.push({ t: 'mush', x: r(), y: r(), c: r() < 0.55 ? 0 : 1 });
-    for (i = 0; i < 4; i++) DECOR.push({ t: 'log', x: 0.08 + r() * 0.84, y: r() });
-    for (i = 0; i < 6; i++) DECOR.push({ t: 'rock', x: r(), y: r(), s: 1 + r() });
-    DECOR.sort(function (a, b) { return a.y - b.y; });
-}
-
-function resizeBase() {
-    var w = $('base-view').clientWidth, h = $('base-view').clientHeight;
-    var dpr = Math.min(window.devicePixelRatio || 1, 2), cw = w * dpr, ch = h * dpr;
-    if (cw * ch > 1600000) { var f = Math.sqrt(1600000 / (cw * ch)); cw *= f; ch *= f; } // limite para PCs fracos
-    bc.width = Math.max(160, Math.floor(cw));
-    bc.height = Math.max(80, Math.floor(ch));
-    if (!DECOR.length) genDecor();
-    drawBase(Date.now());
-}
-
-function pine(x, g, h, u, night) {
-    var dark = night ? '#0d2a14' : '#1f4d2a', mid = night ? '#123519' : '#2a6335';
-    rect(x - 0.7 * u, g - h * 0.16, 1.4 * u, h * 0.16, '#4e342e');
-    for (var i = 0; i < 3; i++) {
-        var w = h * (0.34 - i * 0.07), y0 = g - h * 0.1 - i * h * 0.25;
-        ctx.fillStyle = i % 2 ? mid : dark;
-        tri(x - w, y0, x + w, y0, x, y0 - h * 0.36);
-        ctx.fillStyle = dark; // pontas que saem para fora dos galhos
-        tri(x - w - 1.8 * u, y0 + 0.9 * u, x - w + 0.8 * u, y0 - 0.7 * u, x - w + 0.8 * u, y0 + 0.7 * u);
-        tri(x + w + 1.8 * u, y0 + 0.9 * u, x + w - 0.8 * u, y0 - 0.7 * u, x + w - 0.8 * u, y0 + 0.7 * u);
-        tri(x - w * 0.55, y0 - h * 0.12, x - w * 0.55 - 1.5 * u, y0 - h * 0.08, x - w * 0.55 + 0.5 * u, y0 - h * 0.05);
-        tri(x + w * 0.55, y0 - h * 0.12, x + w * 0.55 + 1.5 * u, y0 - h * 0.08, x + w * 0.55 - 0.5 * u, y0 - h * 0.05);
+function hit(b, dmg) {
+    if (b.dead) return;
+    b.hp -= dmg;
+    if (b.hp <= 0) {
+        b.hp = 0; b.dead = true;
+        var s = DEF[b.type].size;
+        for (var j = 0; j < s; j++) for (var i = 0; i < s; i++) if (occ[(b.y + j) * GRID + b.x + i] === b) occ[(b.y + j) * GRID + b.x + i] = null;
+        if (b.type !== 'wall' && BT) BT.destroyedN++;
+        if (b.type === 'center' && BT) BT.centerDown = true;
+        vsDirty = true;
     }
 }
-
-function drawDecor(W, H, g, u, night) {
-    var gh = Math.min(H - g - 4 * u, 36 * u);
-    for (var i = 0; i < DECOR.length; i++) {
-        var d = DECOR[i], x = d.x * W, y = g + 2 * u + d.y * gh;
-        if (d.t === 'patch') { ctx.fillStyle = night ? '#18220f' : '#2e3d1c'; ctx.beginPath(); ctx.ellipse(x, y, d.s * u, d.s * u * 0.35, 0, 0, 6.2832); ctx.fill(); }
-        else if (d.t === 'grass') {
-            ctx.fillStyle = night ? '#2c4a1c' : '#5a8a35';
-            for (var k = 0; k < 5; k++) { var bx = x + k * 0.55 * u; tri(bx - 0.35 * u, y, bx + 0.35 * u, y, bx + (k - 2) * 0.35 * u, y - (1.6 + (k % 3) * 0.9) * u * d.s); }
-        } else if (d.t === 'mush') {
-            rect(x - 0.3 * u, y - 1 * u, 0.6 * u, 1 * u, night ? '#9e9a94' : '#efebe9');
-            ctx.fillStyle = d.c ? '#8d6e63' : '#d32f2f';
-            ctx.beginPath(); ctx.arc(x, y - 1 * u, 1.3 * u, Math.PI, 0); ctx.fill();
-            if (!d.c) { rect(x - 0.7 * u, y - 1.9 * u, 0.4 * u, 0.4 * u, '#fff'); rect(x + 0.3 * u, y - 1.6 * u, 0.4 * u, 0.4 * u, '#fff'); }
-        } else if (d.t === 'log') {
-            rect(x - 4 * u, y - 1.6 * u, 8 * u, 2.2 * u, night ? '#3a281f' : '#5d4037');
-            rect(x - 4 * u, y - 1.6 * u, 8 * u, 0.5 * u, night ? '#4a3329' : '#7a5648');
-            circ(x + 4 * u, y - 0.5 * u, 1.1 * u, night ? '#8d7a66' : '#bca27f');
-            rect(x - 1.5 * u, y - 2.6 * u, 0.6 * u, 1.1 * u, '#4e342e'); rect(x + 1 * u, y - 2.3 * u, 0.6 * u, 0.8 * u, '#4e342e');
-        } else if (d.t === 'rock') { ctx.fillStyle = night ? '#3b3f43' : '#78818a'; ctx.beginPath(); ctx.ellipse(x, y - 0.5 * u, d.s * 1.6 * u, d.s * 0.9 * u, 0, 0, 6.2832); ctx.fill(); }
+// vai até o alvo (construção ou zumbi) dando a volta nos prédios
+function goTo(u, target, isUnit, stop, dt, repath) {
+    var B = BT;
+    if (!u.path || u.ptgt !== target || u.pr <= 0) {
+        if (B.pb <= 0) return false; // limite de caminhos por passo (evita travada)
+        B.pb--;
+        u.path = findPath(u, target, isUnit, stop, u.side === 'a' ? 'a' : 'd'); u.pi = 0; u.ptgt = target; u.pr = repath + Math.random() * 0.3;
+        if (!u.path) return false;
     }
+    followPath(u, dt);
+    return true;
 }
-
-// ---------- fogueira ----------
-function fire(x, y, u, t, lit, rain) {
-    rect(x - 3 * u, y - 1 * u, 6 * u, 1.2 * u, '#4e342e');
-    rect(x - 2 * u, y - 1.8 * u, 4 * u, 0.9 * u, '#3e2723');
-    var fi = 1;
-    if (lit && rain) fi = (Math.sin(t / 130) + Math.sin(t / 410) * 1.3 > 0.2) ? 0.9 : 0.12; // falha na chuva
-    if (lit && fi > 0.3) {
-        var f = Math.sin(t / 90) * 0.6 + Math.sin(t / 37) * 0.4;
-        circ(x, y - 2 * u, (9 + f) * u * fi, 'rgba(255,150,40,0.16)');
-        ctx.fillStyle = '#e65100'; tri(x - 2.2 * u, y - u, x + 2.2 * u, y - u, x, y - (6 + f) * u * fi);
-        ctx.fillStyle = '#ffb300'; tri(x - 1.4 * u, y - u, x + 1.4 * u, y - u, x, y - (4.2 + f * 0.7) * u * fi);
-        ctx.fillStyle = '#fff59d'; tri(x - 0.7 * u, y - u, x + 0.7 * u, y - u, x, y - (2.4 + f * 0.4) * u * fi);
+function uStep(u, dt) {
+    var T = TROOP[u.type], enemy = u.side === 'a' ? 'd' : 'a';
+    u.rt -= dt; u.pt -= dt; u.pr -= dt;
+    var tu = u.tu && !u.tu.dead ? u.tu : null;
+    if (!tu || u.rt <= 0) {
+        u.rt = 0.4;
+        var nt = u.side === 'a' ? nearestUnit(u, enemy, Math.max(2.4, T.range), false) : nearestUnit(u, enemy, 9, true);
+        u.tu = tu = nt;
+    }
+    if (tu) {
+        var d = Math.hypot(tu.x - u.x, tu.y - u.y);
+        if (d <= T.range + 0.25) {
+            tu.hp -= T.dmg * dt * (tu.type === 'tank' ? 0.8 : 1);
+            if (tu.hp <= 0 && !tu.dead) { tu.dead = true; if (tu.side === 'a') BT.killedA++; }
+            if (u.type === 'spitter' && u.pt <= 0) { u.pt = 0.7; BT.projs.push({ x1: u.x, y1: u.y - 0.2, x2: tu.x, y2: tu.y, t: 0.3, max: 0.3, glow: true }); }
+            return;
+        }
+        goTo(u, tu, true, Math.max(0.55, T.range - 0.4), dt, 0.5);
         return;
     }
-    if (lit) { // brasa fraca da fogueira "falhando"
-        circ(x - 0.8 * u, y - 1.6 * u, 0.5 * u, '#ff7043'); circ(x + 0.9 * u, y - 1.5 * u, 0.4 * u, '#ff7043');
+    if (u.side === 'd') { // defensor sem inimigo por perto: volta para perto do bunker
+        if (Math.hypot(u.hx - u.x, u.hy - u.y) > 1.5) goTo(u, { x: u.hx, y: u.hy }, true, 0.8, dt, 1.5);
+        return;
     }
-    // apagada (de dia) ou falhando: fumaça subindo
-    for (var k = 0; k < 5; k++) {
-        var ph = ((t / 60) + k * 9) % 45, a = 0.5 * (1 - ph / 45);
-        circ(x + Math.sin(ph / 6 + k) * 1.4 * u, y - 2.5 * u - ph * 0.42 * u, (1.1 + ph / 45 * 2.4) * u, 'rgba(170,170,170,' + a.toFixed(2) + ')');
+    if (!u.tgt || u.tgt.dead) { u.tgt = pickTarget(u); u.path = null; u.bad = null; if (!u.tgt) return; }
+    var t = u.tgt, dd = distRect(u, t), reach = Math.max(0.62, T.range - 0.1);
+    if (dd <= reach) {
+        hit(t, T.dmg * dt);
+        if (u.type === 'spitter' && u.pt <= 0) { var c = bCenter(t); u.pt = 0.7; BT.projs.push({ x1: u.x, y1: u.y - 0.2, x2: c.x, y2: c.y, t: 0.3, max: 0.3, glow: true }); }
+        return;
     }
-}
-
-// ---------- pessoas ----------
-function person(x, y, u0, a, p, t, night) {
-    var u = u0 * 1.6; // bonecos maiores que o resto da cena, para dar para ver
-    var col = 'hsl(' + p.shirt + ',72%,50%)', st = a.st, legs = '#37474f', skin = '#ffcc80';
-    var bob = (st === 'walk' || st === 'run') ? Math.sin(t / (st === 'run' ? 70 : 130)) : 0;
-    if (st === 'sit') {
-        rect(x - 0.7 * u, y - 4 * u, 1.4 * u, 1.4 * u, skin);
-        rect(x - 0.8 * u, y - 4.3 * u, 1.6 * u, 0.6 * u, '#3e2723');
-        rect(x - 0.9 * u, y - 2.7 * u, 1.8 * u, 2 * u, col);
-        rect(x - 0.9 * u, y - 0.9 * u, 2.8 * u, 0.9 * u, legs);
-    } else {
-        rect(x - 0.7 * u, y - 4.4 * u, 1.4 * u, 1.4 * u, skin);
-        rect(x - 0.8 * u, y - 4.7 * u, 1.6 * u, 0.6 * u, '#3e2723');
-        rect(x - 0.9 * u, y - 3 * u, 1.8 * u, 2.2 * u, col);
-        rect(x - 0.9 * u, y - 0.8 * u - Math.max(0, bob) * 0.5 * u, 0.7 * u, 0.8 * u + Math.max(0, bob) * 0.5 * u, legs);
-        rect(x + 0.2 * u, y - 0.8 * u - Math.max(0, -bob) * 0.5 * u, 0.7 * u, 0.8 * u + Math.max(0, -bob) * 0.5 * u, legs);
-        if (st === 'stand' && p.job === 'guarda') { // bastão de beisebol na mão
-            ctx.strokeStyle = p.gb ? '#ffd54f' : '#c9a063';
-            ctx.lineWidth = Math.max(1.5, 0.8 * u);
-            ctx.beginPath(); ctx.moveTo(x + 1.1 * u, y - 2.2 * u); ctx.lineTo(x + 2.6 * u, y - 6.4 * u); ctx.stroke();
+    if (u.type !== 'tank') { // o escudeiro vai na frente: os outros esperam ele
+        var tank = null, bd = 99, us = BT.us;
+        for (var i = 0; i < us.length; i++) { var o = us[i]; if (!o.dead && o.side === 'a' && o.type === 'tank') { var q = Math.hypot(o.x - u.x, o.y - u.y); if (q < bd) { bd = q; tank = o; } } }
+        if (tank && bd < 12) {
+            var c2 = bCenter(t), du = Math.hypot(c2.x - u.x, c2.y - u.y), dtk = Math.hypot(c2.x - tank.x, c2.y - tank.y);
+            if (du < dtk - 0.4 && du > T.range + 0.8) return;
         }
     }
-    // nome em cima do boneco (alterna a altura para os nomes não se cobrirem)
-    var fs = Math.max(9, Math.round(3.3 * u0));
-    var ny = y - 5.8 * u - (a.slot % 2) * fs * 1.05;
-    ctx.font = 'bold ' + fs + 'px monospace'; ctx.textAlign = 'center';
-    ctx.fillStyle = '#000'; ctx.fillText(p.name, x + 1, ny + 1);
-    ctx.fillStyle = p.id === me.id ? '#ffe082' : 'rgba(255,255,255,0.92)'; ctx.fillText(p.name, x, ny);
+    if (!goTo(u, t, false, Math.max(0.52, reach - 0.06), dt, 1.3)) { if (BT.pb > 0 || !u.path) { u.bad = t; u.tgt = null; } }
 }
-
-function zombie(x, y, u0, t, i) {
-    var u = u0 * 1.6;
-    var sw = Math.sin(t / 400 + i) * 0.3 * u;
-    rect(x - 0.7 * u + sw, y - 4.4 * u, 1.4 * u, 1.4 * u, '#7cb342');
-    rect(x - 0.4 * u + sw, y - 4 * u, 0.3 * u, 0.3 * u, '#c62828'); rect(x + 0.2 * u + sw, y - 4 * u, 0.3 * u, 0.3 * u, '#c62828');
-    rect(x - 0.9 * u, y - 3 * u, 1.8 * u, 2.2 * u, '#546e7a');
-    rect(x - 0.9 * u, y - 2.8 * u, 0.5 * u, 0.8 * u, '#37474f'); // rasgo
-    rect(x + 0.9 * u, y - 3 * u, 1.8 * u, 0.6 * u, '#7cb342'); // braço esticado
-    rect(x - 0.9 * u, y - 0.8 * u, 0.7 * u, 0.8 * u, '#455a64'); rect(x + 0.2 * u, y - 0.8 * u, 0.7 * u, 0.8 * u, '#455a64');
-}
-
-// ---------- avatares (posições em unidades u relativas à base) ----------
-var AV = {};
-var SEATS = [{ x: 9.5, y: 5.5 }, { x: 12.5, y: 5.5 }, { x: 23.5, y: 5.5 }, { x: 26.5, y: 5.5 }, { x: 15.5, y: 11.5 }, { x: 18, y: 11.5 }, { x: 20.5, y: 11.5 }];
-var GUARD_POSTS = [{ x: -4, y: 6 }, { x: 36, y: 7 }, { x: -52, y: 7 }, { x: 46, y: 11 }, { x: -12, y: 10 }, { x: 40, y: 3 }];
-function doorUx(lvl) { return lvl === 1 ? -20 : (lvl === 2 ? -24 : (lvl === 3 ? -28 : -2)); }
-
-function stepAvatars(lvl, hr, rain) {
-    var dt = FDT, nowMs = Date.now();
-    var list = getPlayers().slice().sort(function (a, b) { return a.id < b.id ? -1 : 1; });
-    var ids = {};
-    list.forEach(function (p) { ids[p.id] = 1; });
-    Object.keys(AV).forEach(function (k) { if (!ids[k]) delete AV[k]; });
-    var night = fireOn(hr), guardTime = hr >= 19 || hr < 6, door = doorUx(lvl), seat = 0, post = 0, slotN = 0;
-
-    list.forEach(function (p) {
-        var a = AV[p.id];
-        if (!a) { var rr = rng(hashStr(p.id)); a = AV[p.id] = { ux: -40 + rr() * 90, uy: 6 + rr() * 8, tx: 0, ty: 0, wait: 0, st: 'walk', inside: false, rr: rr }; }
-        a.p = p; a.slot = slotN++;
-        if (p.id === me.id && nowMs < MAN.until) { a.inside = false; return; } // você está controlando (stepSelf anda)
-
-        var rp = POS[p.id], remote = p.id !== me.id && rp && nowMs - rp.t < 2500; // outro jogador andando
-        var tx, ty, speed = 3.75, mode = 'walk';
-        if (remote) { tx = rp.x; ty = rp.y; speed = 12; mode = 'remote'; a.inside = false; }
-        else if (rain) { tx = door; ty = 1.5; speed = 8.3; mode = 'run'; }
-        else {
-            if (a.inside) { a.inside = false; a.ux = door; a.uy = 1.5; }
-            if (guardTime && p.job === 'guarda') { var gp = GUARD_POSTS[post++ % GUARD_POSTS.length]; tx = gp.x; ty = gp.y; mode = 'guard'; }
-            else if (night) {
-                if (seat < SEATS.length) { tx = SEATS[seat].x; ty = SEATS[seat].y; seat++; }
-                else { tx = 30 + ((seat - SEATS.length) % 3) * 4; ty = 9 + Math.floor((seat - SEATS.length) / 3) * 5; seat++; }
-                mode = 'sit';
-            } else {
-                mode = 'walk';
-                if (a.wait > 0) { a.wait -= dt; tx = a.ux; ty = a.uy; }
-                else if ((!a.tx && !a.ty) || (Math.abs(a.ux - a.tx) < 0.6 && Math.abs(a.uy - a.ty) < 0.6)) { a.tx = -58 + a.rr() * 116; a.ty = 5 + a.rr() * 10; a.wait = 1 + a.rr() * 3; tx = a.ux; ty = a.uy; }
-                else { tx = a.tx; ty = a.ty; }
-            }
-        }
-        var dx = tx - a.ux, dy = ty - a.uy, dist = Math.sqrt(dx * dx + dy * dy), step = speed * dt;
-        var running = rain && mode !== 'remote';
-        if (dist <= Math.max(step, 0.05)) {
-            a.ux = tx; a.uy = ty;
-            a.st = running ? 'run' : (mode === 'sit' ? 'sit' : (mode === 'guard' ? 'stand' : 'idle'));
-            if (running) a.inside = true;
-        } else { a.ux += dx / dist * step; a.uy += dy / dist * step; a.st = running ? 'run' : 'walk'; }
-    });
-}
-
-var ZOMBIES = [], zKey = "";
-function getZombies() {
-    var key = (me.uf || "") + todayKey();
-    if (key !== zKey) {
-        zKey = key; ZOMBIES = [];
-        var r = rng(hashStr(key));
-        while (ZOMBIES.length < 4) {
-            var ux = -60 + r() * 120, uy = 4 + r() * 12;
-            if (Math.abs(ux - 18) < 12 || (ux > -56 && ux < 10 && uy < 4)) continue;
-            ZOMBIES.push({ ux: ux, uy: uy });
-        }
+function btStart(cfg) {
+    V.forEach(function (b) { b.dead = false; });
+    useVillage(cfg.vil);
+    V.forEach(function (b) { b.dead = false; b.hp = maxHp(b); b.cd = 0; });
+    buildOcc();
+    var nonWall = V.filter(function (b) { return b.type !== 'wall'; });
+    BT = { kind: cfg.kind, us: [], q: [], projs: [], t: 0, limit: cfg.limit, over: false, speed: 1, nid: 1, towers: V.filter(function (b) { return b.type === 'tower' && functional(b); }),
+           bunkers: [], nonWall: nonWall, destroyedN: 0, center: V.filter(function (b) { return b.type === 'center'; })[0], hpA: cfg.hpA || 1, hpD: cfg.hpD || 1, army: cfg.army || null,
+           deployed: { zombie: 0, spitter: 0, tank: 0 }, sel: 'zombie', info: cfg.info, grace: 0, centerDown: false, killedA: 0, pb: 6 };
+    walkers.length = 0;
+    var bks = V.filter(function (b) { return b.type === 'bunker' && functional(b); });
+    bks.forEach(function (b) { BT.bunkers.push({ b: b, list: [], opened: false }); });
+    if (BT.bunkers.length) {
+        var i = 0;
+        ['tank', 'spitter', 'zombie'].forEach(function (k) { for (var n = 0; n < (cfg.defTroops[k] || 0); n++) BT.bunkers[(i++) % BT.bunkers.length].list.push(k); });
     }
-    return ZOMBIES;
-}
-
-// ---------- desenho principal ----------
-function drawBase(t) {
-    var W = bc.width, H = bc.height, u = Math.min(H / 100, W / 116);
-    var cx = Math.round(W / 2 + 3 * u), g = Math.round(Math.min(H * 0.72, H / 2 + 22 * u));
-    UYMAX = Math.max(8, Math.min(30, (H - g) / u - 1.5)); UXMIN = Math.max(-100, -cx / u + 3); UXMAX = Math.min(100, (W - cx) / u - 3);
-    var hr = nowH(), rain = isRaining(), lit = fireOn(hr);
-    var night = hr < 5.5 || hr >= 18.5, dusk = (hr >= 17 && hr < 18.5) || (hr >= 5.5 && hr < 7);
-    var players = getPlayers(), lvl = lvlFromN(players.length);
-
-    // céu
-    var c1 = night ? '#0b1026' : (dusk ? '#d9774a' : '#5ab0e0'), c2 = night ? '#1b2a4a' : (dusk ? '#f6c27a' : '#bfe6f5');
-    var gr = ctx.createLinearGradient(0, 0, 0, g);
-    gr.addColorStop(0, c1); gr.addColorStop(1, c2);
-    ctx.fillStyle = gr; ctx.fillRect(0, 0, W, g);
-    if (night) {
-        if (!rain) { // estrelas espalhadas, piscando devagar (com chuva o céu fica coberto)
-            for (var si = 0; si < 60; si++) {
-                var sx = Math.round(hrand(si * 2 + 1) * W), sy = Math.round(hrand(si * 2 + 2) * g * 0.88);
-                var ss = Math.max(1, Math.round((si % 9 === 0 ? 0.7 : 0.4) * u));
-                ctx.fillStyle = 'rgba(255,255,255,' + (0.65 + 0.35 * Math.sin(t / 700 + si * 1.7)).toFixed(2) + ')';
-                ctx.fillRect(sx, sy, ss, ss);
-            }
-            circ(W * 0.82, g * 0.18, 3 * u, '#eceff1');
-        } else circ(W * 0.82, g * 0.18, 3 * u, 'rgba(200,210,225,0.35)');
-    } else circ(W * 0.82, g * 0.18, 3.5 * u, dusk ? '#ff8a50' : '#ffe082');
-
-    // nuvens devagar no céu (de dia)
-    if (!night) {
-        ctx.fillStyle = rain ? 'rgba(110,120,135,0.9)' : (dusk ? 'rgba(255,225,200,0.6)' : 'rgba(255,255,255,0.8)');
-        for (var ci = 0; ci < 4; ci++) {
-            var cxp = (((ci * 0.31 + t / (700000 / (0.6 + ci * 0.25))) % 1.3) - 0.15) * W, cyp = g * (0.1 + ci * 0.075);
-            ctx.beginPath();
-            ctx.ellipse(cxp, cyp, 7 * u, 2 * u, 0, 0, 6.2832); ctx.ellipse(cxp - 4 * u, cyp + 0.6 * u, 4.5 * u, 1.7 * u, 0, 0, 6.2832); ctx.ellipse(cxp + 4.5 * u, cyp + 0.5 * u, 5 * u, 1.8 * u, 0, 0, 6.2832);
-            ctx.fill();
-        }
-    }
-
-    // árvores ao fundo (pinheiros com pontas)
-    for (var i = 0; i < TREEDEF.length; i++) pine(TREEDEF[i].x * W, g, TREEDEF[i].h * u, u, night);
-
-    // chão
-    rect(0, g, W, H - g, night ? '#1c2616' : '#3b4a2a');
-    rect(0, g, W, 1.2 * u, night ? '#111a0d' : '#2c381f');
-    drawDecor(W, H, g, u, night);
-
-    var winCol = fireOn(hr) ? '#ffcc80' : '#5d4037';
-    // construção conforme o nível
-    if (lvl === 1) {
-        ctx.fillStyle = '#6d7f3b'; tri(cx - 32 * u, g, cx - 8 * u, g, cx - 20 * u, g - 20 * u);
-        ctx.fillStyle = '#4e5c28'; tri(cx - 20 * u, g - 20 * u, cx - 8 * u, g, cx - 14 * u, g);
-        ctx.fillStyle = '#2b2b1d'; tri(cx - 23 * u, g, cx - 17 * u, g, cx - 20 * u, g - 9 * u);
-    } else if (lvl === 2) {
-        rect(cx - 40 * u, g - 17 * u, 32 * u, 17 * u, '#8d6e63');
-        ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = Math.max(1, 0.3 * u);
-        for (var k = 1; k < 6; k++) { ctx.beginPath(); ctx.moveTo(cx - 40 * u, g - k * 3 * u); ctx.lineTo(cx - 8 * u, g - k * 3 * u); ctx.stroke(); }
-        ctx.fillStyle = '#4e342e'; tri(cx - 44 * u, g - 17 * u, cx - 4 * u, g - 17 * u, cx - 24 * u, g - 31 * u);
-        rect(cx - 27 * u, g - 10 * u, 6 * u, 10 * u, '#3e2723');
-        rect(cx - 37 * u, g - 13 * u, 5 * u, 5 * u, winCol); rect(cx - 15 * u, g - 13 * u, 5 * u, 5 * u, winCol);
-    } else if (lvl === 3) {
-        rect(cx - 46 * u, g - 22 * u, 36 * u, 22 * u, '#8a8576');
-        rect(cx - 46 * u, g - 22 * u, 36 * u, 2 * u, '#756f61');
-        ctx.fillStyle = '#5d4a3a'; ctx.beginPath();
-        ctx.moveTo(cx - 49 * u, g - 22 * u); ctx.lineTo(cx - 32 * u, g - 37 * u); ctx.lineTo(cx - 24 * u, g - 31 * u);
-        ctx.lineTo(cx - 20 * u, g - 35 * u); ctx.lineTo(cx - 7 * u, g - 22 * u); ctx.closePath(); ctx.fill();
-        rect(cx - 41 * u, g - 16 * u, 6 * u, 7 * u, '#1b1b1b'); rect(cx - 21 * u, g - 16 * u, 6 * u, 7 * u, '#1b1b1b');
-        rect(cx - 31 * u, g - 11 * u, 6 * u, 11 * u, '#2a2118');
-        [[-46, -20, 6], [-16, -14, 6], [-36, -33, 3], [-30, -8, 3]].forEach(function (v) {
-            for (var n = 0; n < v[2]; n++) circ(cx + v[0] * u + (n % 3) * 1.6 * u, g + v[1] * u + Math.floor(n / 3) * 1.4 * u, 1.5 * u, n % 2 ? '#2e6b2a' : '#3f8a35');
+    if (cfg.auto) {
+        var side = Math.floor(Math.random() * 4), p = 3 + Math.random() * 24, k2 = 0;
+        cfg.auto.sort(function (a, b) { return (a === 'tank' ? 0 : 1) - (b === 'tank' ? 0 : 1); });
+        cfg.auto.forEach(function (type) {
+            var jx = (Math.random() - 0.5) * 3, jy = (Math.random() - 0.5) * 3, x, y;
+            if (side === 0) { x = p + jx; y = 0.6 + Math.abs(jy) * 0.3; } else if (side === 1) { x = p + jx; y = GRID - 0.6 - Math.abs(jy) * 0.3; }
+            else if (side === 2) { x = 0.6 + Math.abs(jx) * 0.3; y = p + jy; } else { x = GRID - 0.6 - Math.abs(jx) * 0.3; y = p + jy; }
+            BT.q.push({ at: (type === 'tank' ? 0 : 0.8) + k2++ * 0.25, type: type, x: Math.max(0.6, Math.min(GRID - 0.6, x)), y: Math.max(0.6, Math.min(GRID - 0.6, y)) });
         });
-        for (var m = 0; m < 12; m++) rect(cx - 50 * u + m * 4 * u, g - 1.5 * u, 1.2 * u, 2 * u, '#3f8a35');
-    } else {
-        var top = g - 26 * u;
-        rect(cx - 54 * u, top, 62 * u, 26 * u, '#75757d');
-        rect(cx - 56 * u, top - 2 * u, 66 * u, 3 * u, '#5a5a62');
-        rect(cx - 50 * u, top + 3 * u, 28 * u, 6 * u, '#8b3a3a');
-        ctx.fillStyle = '#d7ccc8'; ctx.font = 'bold ' + Math.max(6, Math.round(4.5 * u)) + 'px monospace'; ctx.textAlign = 'left';
-        ctx.fillText('LOJA', cx - 44 * u, top + 8 * u);
-        rect(cx - 50 * u, top + 12 * u, 9 * u, 8 * u, '#202428'); rect(cx - 37 * u, top + 12 * u, 9 * u, 8 * u, '#202428'); rect(cx - 24 * u, top + 12 * u, 9 * u, 8 * u, '#202428');
-        rect(cx - 8 * u, top + 8 * u, 12 * u, 18 * u, '#1a2a30');
-        [[-54, 6], [-14, 12]].forEach(function (v) { for (var n = 0; n < 6; n++) circ(cx + v[0] * u + (n % 3) * 1.6 * u, top + v[1] * u + Math.floor(n / 3) * 1.4 * u, 1.5 * u, n % 2 ? '#2e6b2a' : '#3f8a35'); });
-        for (var c = 0; c < 3; c++) { // mini cabanas no topo
-            var hx = cx - 50 * u + c * 11 * u;
-            rect(hx, top - 6 * u, 7 * u, 4 * u, '#8d6e63');
-            ctx.fillStyle = '#4e342e'; tri(hx - 1 * u, top - 6 * u, hx + 8 * u, top - 6 * u, hx + 3.5 * u, top - 10 * u);
-        }
-        fire(cx - 12 * u, top - 1 * u, u, t, lit, rain); // fogueira do topo
     }
-
-    // fogueira do chão com troncos-cadeira
-    var fx = cx + 18 * u, fy = g + 4 * u;
-    [[11, 5.5, 7], [25, 5.5, 7], [18, 11.5, 9]].forEach(function (l) {
-        rect(cx + (l[0] - l[2] / 2) * u, g + (l[1] - 0.6) * u, l[2] * u, 2 * u, '#6d4c41');
-        rect(cx + (l[0] - l[2] / 2) * u, g + (l[1] - 0.6) * u, l[2] * u, 0.6 * u, '#8d6e63');
-        circ(cx + (l[0] + l[2] / 2) * u, g + (l[1] + 0.4) * u, 1 * u, '#bca27f');
+    requestRender();
+}
+function openBunker(k) {
+    k.opened = true;
+    var c = bCenter(k.b), placed = 0, a = Math.random() * 6.28, tries = 0;
+    k.list.forEach(function (type) {
+        var x, y, ok = false;
+        for (tries = 0; tries < 40 && !ok; tries++) {
+            var ang = a + placed * 0.9 + tries * 0.35, rad = 2.1 + (tries % 4) * 0.4;
+            x = c.x + Math.cos(ang) * rad; y = c.y + Math.sin(ang) * rad;
+            ok = x > 0.6 && y > 0.6 && x < GRID - 0.6 && y < GRID - 0.6 && !bAt(Math.floor(x), Math.floor(y));
+        }
+        if (!ok) { x = c.x; y = c.y + 1.9; }
+        addUnit('d', type, x, y, BT.hpD); placed++;
     });
-    fire(fx, fy, u, t, lit, rain);
-
-    // trocador (quartas)
-    if (isWed()) {
-        var tx = cx + 44 * u, ty = g + 4 * u;
-        rect(tx - 5 * u, ty - 4 * u, 10 * u, 4 * u, '#6d4c41');
-        for (var s = 0; s < 5; s++) rect(tx - 5.5 * u + s * 2.2 * u, ty - 9 * u, 2.2 * u, 2.2 * u, s % 2 ? '#fff' : '#c62828');
-        rect(tx - 5.5 * u, ty - 9 * u, 0.5 * u, 5 * u, '#4e342e'); rect(tx + 5 * u, ty - 9 * u, 0.5 * u, 5 * u, '#4e342e');
-        rect(tx - 0.8 * u, ty - 8 * u, 1.6 * u, 1.6 * u, '#ffcc80'); rect(tx - 1.2 * u, ty - 8.5 * u, 2.4 * u, 0.6 * u, '#795548');
-        rect(tx - 0.9 * u, ty - 6.4 * u, 1.8 * u, 2.4 * u, '#ffb300');
-        circ(tx + 3 * u, ty - 4.6 * u, 0.9 * u, '#cfd8dc');
-        ctx.font = 'bold ' + Math.max(9, Math.round(3.2 * u)) + 'px monospace'; ctx.textAlign = 'center';
-        ctx.fillStyle = '#000'; ctx.fillText('Trocador', tx + 1, ty - 10.5 * u + 1); ctx.fillStyle = '#e0e0e0'; ctx.fillText('Trocador', tx, ty - 10.5 * u);
+    toast(BT.kind === 'attack' ? "O bunker inimigo abriu! Zumbis saindo!" : "Seu bunker abriu! Os zumbis saíram para defender!");
+    requestRender();
+}
+function btStep(dt) {
+    var B = BT, i, j, us = B.us;
+    B.t += dt; B.pb = 6;
+    while (B.q.length && B.q[0].at <= B.t) { var q = B.q.shift(); addUnit('a', q.type, q.x, q.y, B.hpA); }
+    for (i = 0; i < B.bunkers.length; i++) {
+        var k = B.bunkers[i];
+        if (k.opened) continue;
+        var open = k.b.hp < maxHp(k.b), c = bCenter(k.b);
+        if (!open) for (j = 0; j < us.length; j++) { var u0 = us[j]; if (!u0.dead && u0.side === 'a' && Math.hypot(u0.x - c.x, u0.y - c.y) <= TRIG) { open = true; break; } }
+        if (open) openBunker(k);
     }
-
-    // zumbis parados (21:00 até o amanhecer)
-    if (hr >= 21 || hr < 5) getZombies().forEach(function (z, i) { zombie(cx + z.ux * u, g + z.uy * u, u, t, i); });
-
-    // jogadores
-    stepAvatars(lvl, hr, rain);
-    var arr = [];
-    Object.keys(AV).forEach(function (k) { var a = AV[k]; if (a.p && !a.inside) arr.push(a); });
-    arr.sort(function (a, b) { return a.uy - b.uy; });
-    arr.forEach(function (a) { person(cx + a.ux * u, g + a.uy * u, u, a, a.p, t, night); });
-
-    // chuva
-    if (rain) {
-        ctx.fillStyle = 'rgba(25,35,60,0.32)'; ctx.fillRect(0, 0, W, H);
-        ctx.strokeStyle = 'rgba(190,210,255,0.6)'; ctx.lineWidth = Math.max(1, 0.3 * u);
-        var nd = Math.min(130, Math.round(W / 9));
-        for (var d = 0; d < nd; d++) {
-            var sp = 0.75 + hrand(d * 3 + 7) * 0.7, len = (1.4 + hrand(d * 3 + 8) * 1.2) * u;
-            var rx = (((hrand(d * 3 + 5) * (W + 30) - t * 0.02 * u * sp) % (W + 30)) + (W + 30)) % (W + 30) - 15;
-            var ry = (hrand(d * 3 + 6) * H + t * 0.06 * u * sp) % H;
-            ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - len * 0.35, ry + len); ctx.stroke();
+    var dd = DEF.tower;
+    for (i = 0; i < B.towers.length; i++) {
+        var tw = B.towers[i];
+        if (tw.dead) continue;
+        tw.cd -= dt;
+        if (tw.cd > 0) continue;
+        var l = tw.lvl - 1, tx = tw.x + 1, ty = tw.y + 1, r2 = dd.range[l] * dd.range[l], best = null, bdist = r2, tankB = null, tdist = r2;
+        for (j = 0; j < us.length; j++) {
+            var z = us[j]; if (z.dead || z.side !== 'a') continue;
+            var d2 = (z.x - tx) * (z.x - tx) + (z.y - ty) * (z.y - ty);
+            if (d2 <= bdist) { bdist = d2; best = z; }
+            if (z.type === 'tank' && d2 <= tdist) { tdist = d2; tankB = z; }
+        }
+        best = tankB || best; // o escudeiro chama a atenção das torres
+        if (best) {
+            best.hp -= dd.dmg[l]; tw.cd = dd.cd[l];
+            B.projs.push({ x1: tx, y1: ty, x2: best.x, y2: best.y, t: 0.12, max: 0.12 });
+            if (best.hp <= 0) { best.dead = true; B.killedA++; }
+        } else tw.cd = 0.1;
+    }
+    us = B.us; // (a lista pode ter crescido com o bunker)
+    for (i = 0; i < us.length; i++) if (!us[i].dead) uStep(us[i], dt);
+    // afasta zumbis que ficaram em cima uns dos outros
+    for (i = 0; i < us.length; i++) {
+        var a = us[i]; if (a.dead) continue;
+        for (j = i + 1; j < us.length; j++) {
+            var b = us[j]; if (b.dead) continue;
+            var ex = b.x - a.x, ey = b.y - a.y, e2 = ex * ex + ey * ey;
+            if (e2 < 0.09 && e2 > 0.0001) {
+                var e = Math.sqrt(e2), push = (0.3 - e) * 0.25, px = ex / e * push, py = ey / e * push;
+                if (!bAt(Math.floor(b.x + px), Math.floor(b.y + py))) { b.x += px; b.y += py; }
+                if (!bAt(Math.floor(a.x - px), Math.floor(a.y - py))) { a.x -= px; a.y -= py; }
+            }
         }
     }
+    var w = 0, alive = 0;
+    for (i = 0; i < us.length; i++) { if (!us[i].dead) { us[w++] = us[i]; if (us[i].side === 'a') alive++; } }
+    us.length = w;
+    w = 0; for (i = 0; i < B.projs.length; i++) { B.projs[i].t -= dt; if (B.projs[i].t > 0) B.projs[w++] = B.projs[i]; }
+    B.projs.length = w;
+    var left = B.army ? B.army.zombie + B.army.spitter + B.army.tank : 0;
+    if (B.centerDown && B.kind === 'defend') B.over = true;
+    else if (B.destroyedN >= B.nonWall.length) B.over = true;
+    else if (B.t > B.limit) B.over = true;
+    else if (B.kind === 'defend') { if (!B.q.length && !alive) B.over = true; }
+    else { if (!alive && !left) { B.grace += dt; if (B.grace > 2) B.over = true; } else B.grace = 0; }
+}
+function btScore() {
+    var tot = BT.nonWall.length, d = BT.destroyedN;
+    var pct = tot ? Math.floor(d * 100 / tot) : 0, stars = (pct >= 50 ? 1 : 0) + (BT.centerDown ? 1 : 0) + (pct >= 100 ? 1 : 0);
+    return { pct: pct, stars: stars };
 }
 
-var lastFrame = 0;
-function frame() { // desenha mais rápido enquanto você anda; se o aparelho for fraco, se adapta sozinho
-    var t0 = Date.now(), cost = 0;
-    FDT = lastFrame ? Math.min(0.25, (t0 - lastFrame) / 1000) : 0.12; lastFrame = t0;
-    if (gameStarted && !document.hidden && !$('map-overlay').classList.contains('show')) {
-        stepSelf(FDT);
-        drawBase(t0);
-        cost = Date.now() - t0;
-    }
-    var busy = MAN.moving || inputVec().m > 0.05;
-    setTimeout(frame, Math.max(busy ? 40 : 110, cost * 1.5));
+// ---------- HUD da batalha ----------
+function updateBHud() {
+    if (!BT) return;
+    var sc = btScore(), left = Math.max(0, BT.limit - BT.t);
+    if (BT.kind === 'attack') {
+        $('b-stat').innerText = "Tempo " + fmtT(left) + " | " + sc.pct + "% | " + new Array(sc.stars + 1).join("★") + new Array(4 - sc.stars).join("☆");
+        drawTroopCards();
+    } else $('wave-txt').innerText = "Ataque de bots! Zumbis: " + BT.us.filter(function (u) { return u.side === 'a'; }).length + BT.q.length + " | " + sc.pct + "%";
 }
-frame();
+function troopIcon(k) {
+    var cvs = document.createElement('canvas'); cvs.width = cvs.height = 88;
+    var c = cvs.getContext('2d'); c.scale(88, 88); c.translate(0.5, 0.62);
+    var u = { id: 1, type: k, side: 'a', x: 0, y: 0, hp: 1, max: 1 };
+    c.scale(1.4, 1.4); drawZombie(c, u, 0);
+    return cvs;
+}
+var iconCache = {};
+function drawTroopCards() {
+    var box = $('troops'), h = "";
+    if (!BT || BT.kind !== 'attack') { box.style.display = 'none'; return; }
+    box.style.display = 'flex';
+    var key = TROOP_ORDER.map(function (k) { return k + ":" + BT.army[k]; }).join(",") + "|" + BT.sel;
+    if (box._key === key) return;
+    box._key = key; box.innerHTML = "";
+    TROOP_ORDER.forEach(function (k) {
+        if (S.troops[k] === 0 && BT.deployed[k] === 0) return;
+        var d = document.createElement('div');
+        d.className = 'tcard' + (BT.sel === k ? ' sel' : '') + (BT.army[k] <= 0 ? ' empty' : '');
+        if (!iconCache[k]) iconCache[k] = troopIcon(k);
+        d.appendChild(iconCache[k].cloneNode ? (function () { var c2 = document.createElement('canvas'); c2.width = c2.height = 88; c2.getContext('2d').drawImage(iconCache[k], 0, 0); return c2; })() : document.createElement('span'));
+        var t = document.createElement('div'); t.innerText = TROOP[k].name.replace("Zumbi ", "") + " x" + BT.army[k]; d.appendChild(t);
+        d.onclick = function () { BT.sel = k; box._key = ""; drawTroopCards(); };
+        box.appendChild(d);
+    });
+}
+function deployAtScreen(px, py) {
+    if (!attackMode()) return;
+    var t = tileAt(px, py), k = BT.sel;
+    if (!BT.army[k] || BT.army[k] <= 0) { // troca para outro tipo que ainda tem
+        var other = TROOP_ORDER.filter(function (x) { return BT.army[x] > 0; })[0];
+        if (!other) return; k = BT.sel = other; $('troops')._key = "";
+    }
+    var x = t.fx, y = t.fy;
+    if (x < 0.5 || y < 0.5 || x > GRID - 0.5 || y > GRID - 0.5) return;
+    for (var j = -1; j <= 1; j++) for (var i = -1; i <= 1; i++) { if (bAt(Math.floor(x) + i, Math.floor(y) + j)) { if (!deployAtScreen._w) { deployAtScreen._w = 1; toast("Solte os zumbis longe das construções."); setTimeout(function () { deployAtScreen._w = 0; }, 1500); } return; } }
+    addUnit('a', k, x + (Math.random() - 0.5) * 0.3, y + (Math.random() - 0.5) * 0.3, 1);
+    BT.army[k]--; BT.deployed[k]++;
+    requestRender(); drawTroopCards();
+}
+
+// ---------- fim da batalha ----------
+function restoreOwn() {
+    S.vil.forEach(function (b) { b.dead = false; b.hp = maxHp(b); });
+    useVillage(S.vil); buildOcc();
+}
+function showMainUI(on) {
+    $('top').style.display = on ? 'flex' : 'none'; $('bar').style.display = on ? 'flex' : 'none'; $('zoom').style.display = 'flex';
+}
+function btEnd() {
+    var B = BT, sc = btScore();
+    BT = null; $('wave').style.display = 'none'; $('troops').style.display = 'none'; $('bhud').style.display = 'none';
+    if (B.kind === 'defend') endDefense(B, sc); else endAttack(B, sc);
+}
+
+// ---------- bots atacam a sua aldeia ----------
+function startBotAttack(live) {
+    var cl = cLvl(), budget = 2 + 2 * cl + Math.floor(S.trophies / 33) + Math.min(8, S.botN);
+    var cfg = { kind: 'defend', vil: S.vil, limit: 150, auto: botArmy(budget), hpA: 1 + (cl - 1) * 0.12 + S.botN * 0.01, hpD: 1,
+                defTroops: { zombie: S.troops.zombie, spitter: S.troops.spitter, tank: S.troops.tank }, info: { name: "Bots" } };
+    btStart(cfg);
+    S.botN++;
+    if (live) {
+        BT.live = true;
+        cancelPlace(); select(null); closeModals();
+        $('wave').style.display = 'block'; $('speed-btn').innerText = "Rápido";
+        toast("Os bots estão atacando a sua aldeia!");
+        startLoop();
+    } else {
+        var g = 0; while (!BT.over && g++ < 3000) btStep(0.1);
+        var sc = btScore(), B = BT; BT = null;
+        return endDefense(B, sc, true);
+    }
+}
+function endDefense(B, sc, offline) {
+    var frac = 0.2 * sc.pct / 100, lost = [], k;
+    for (k in S.res) { var l = Math.floor(S.res[k] * frac); S.res[k] -= l; if (l) lost.push(l + " " + RESN[k]); }
+    var tdelta = sc.stars > 0 ? -sc.stars * 4 : 3;
+    S.trophies = Math.max(0, S.trophies + tdelta);
+    var t = "Ataque de bots: " + sc.pct + "% da aldeia destruída (" + sc.stars + " estrela" + (sc.stars === 1 ? "" : "s") + "). " + (lost.length ? "Perdeu " + lost.join(", ") + ". " : "Nada foi roubado. ") + "Troféus " + (tdelta > 0 ? "+" : "") + tdelta + ".";
+    logAdd(t);
+    restoreOwn();
+    S.vil.forEach(function (b) { if (b.type === 'center') centerSel = b; });
+    updateTop(); save();
+    if (!offline) { toast(t); showMainUI(true); requestRender(); }
+    return t;
+}
+var centerSel = null;
+
+// ---------- você ataca ----------
+function openAttack() {
+    if (BT || SC) return;
+    cancelPlace(); closeModals();
+    var n = armyCount(), h = "";
+    h += "<div>Seu exército: <b>" + n + "</b> zumbi" + (n === 1 ? "" : "s") + " (" + S.troops.zombie + " comuns, " + S.troops.spitter + " cuspidores, " + S.troops.tank + " escudeiros)</div>";
+    if (!n) h += "<div class='need' style='margin:8px 0'>Você não tem zumbis. Construa um Cemitério e um Bunker e treine zumbis em Exército.</div>";
+    h += "<div style='margin:6px 0;color:#aab99a;font-size:13px'>Os zumbis que você soltar são gastos no ataque. Atacar quebra o seu escudo contra jogadores.</div>";
+    h += "<div class='acts'><button class='btn' " + (n && SERVER_URL ? "" : "disabled") + " onclick='searchPlayer()'>Procurar jogador online</button>" +
+         "<button class='btn alt' " + (n ? "" : "disabled") + " onclick='attackBot()'>Atacar um bot (treino)</button></div>";
+    if (!SERVER_URL) h += "<div class='need' style='margin-top:8px'>Abra o jogo pelo servidor para atacar jogadores. Contra bots dá para jogar agora.</div>";
+    h += "<div id='atk-msg' style='margin-top:8px;color:#ffcc80'></div>";
+    $('atk-body').innerHTML = h; $('atk').classList.add('show');
+}
+function attackBot() {
+    var lvl = botLevelForMe();
+    scoutBase(genBot(lvl, Math.floor(Math.random() * 1e9)));
+}
+function scoutBase(info) {
+    closeModals();
+    SC = info; select(null); cancelPlace();
+    useVillage(info.vil);
+    showMainUI(false); fitMap(); requestRender();
+    $('bhud').style.display = 'flex';
+    $('b-info').innerHTML = (info.bot ? "Bot: " : "Jogador: ") + "<b>" + info.name + "</b> | Centro nível " + info.lvl + " | " + info.trophies + " troféus";
+    $('b-stat').innerHTML = "Saque possível: " + Math.floor(info.res.food * 0.25) + " comida, " + Math.floor(info.res.water * 0.25) + " água, " + Math.floor(info.res.scrap * 0.25) + " sucata";
+    $('b-btns').innerHTML = "<button class='btn red' onclick='beginAttack()'>Atacar!</button><button class='btn alt' onclick='nextOpponent()'>Próximo</button><button class='btn alt' onclick='leaveScout()'>Voltar</button>";
+}
+function leaveScout() {
+    SC = null; $('bhud').style.display = 'none'; $('troops').style.display = 'none';
+    restoreOwn(); showMainUI(true); centerOn(centerB()); requestRender(); updateTop();
+}
+function nextOpponent() {
+    if (SC && SC.bot) { attackBot(); return; }
+    var skip = SC ? [SC.id] : [];
+    searchPlayer(skip);
+}
+function beginAttack() {
+    if (!SC) return;
+    var info = SC; SC = null;
+    var army = { zombie: S.troops.zombie, spitter: S.troops.spitter, tank: S.troops.tank };
+    btStart({ kind: 'attack', vil: info.vil, limit: 180, hpA: 1, hpD: info.bot ? 1 + (info.lvl - 1) * 0.1 : 1, army: army, defTroops: info.troops, info: info });
+    BT.sel = army.zombie ? 'zombie' : (army.spitter ? 'spitter' : 'tank');
+    S.shield = 0;
+    $('b-info').innerHTML = (info.bot ? "Bot: " : "Jogador: ") + "<b>" + info.name + "</b>";
+    $('b-btns').innerHTML = "<button class='btn red' onclick='finishNow()'>Terminar</button>";
+    $('troops')._key = ""; drawTroopCards(); updateBHud();
+    toast("Toque no mapa (longe das construções) para soltar zumbis. Segure para soltar vários.");
+    startLoop();
+}
+function finishNow() { if (BT && BT.kind === 'attack') { BT.over = true; } }
+function toggleSpeed() { if (BT) { BT.speed = BT.speed === 1 ? 3 : 1; $('speed-btn').innerText = BT.speed === 1 ? "Rápido" : "Normal"; } }
+
+function endAttack(B, sc) {
+    var info = B.info;
+    // gasta os zumbis soltos
+    TROOP_ORDER.forEach(function (k) { S.troops[k] = Math.max(0, S.troops[k] - B.deployed[k]); });
+    var loot = { food: Math.floor(info.res.food * 0.25 * sc.pct / 100), water: Math.floor(info.res.water * 0.25 * sc.pct / 100), scrap: Math.floor(info.res.scrap * 0.25 * sc.pct / 100) };
+    function finish(accepted, tdelta) {
+        var got = [];
+        for (var k in accepted) { var add = Math.min(accepted[k], storeCap() - S.res[k]); if (add > 0) { S.res[k] += add; got.push("+" + add + " " + RESN[k]); } }
+        S.trophies = Math.max(0, S.trophies + tdelta);
+        var t = "Você atacou " + info.name + ": " + sc.pct + "% destruído, " + sc.stars + " estrela" + (sc.stars === 1 ? "" : "s") + ". " + (got.length ? got.join(", ") + ". " : "") + "Troféus " + (tdelta > 0 ? "+" : "") + tdelta + ".";
+        logAdd(t);
+        restoreOwn(); updateTop(); save();
+        showResult(sc, got, tdelta, info);
+    }
+    if (info.bot) { finish(loot, sc.stars > 0 ? sc.stars * 5 : -3); return; }
+    apiPost("/api/result", { id: S.id, defId: info.id, stars: sc.stars, destruction: sc.pct, loot: loot }).then(function (r) {
+        if (r && r.ok) finish(r.loot, r.tdelta); else finish({ food: 0, water: 0, scrap: 0 }, 0);
+    }).catch(function () { toast("Não consegui falar com o servidor: o saque não foi registrado."); finish({ food: 0, water: 0, scrap: 0 }, 0); });
+}
+function showResult(sc, got, tdelta, info) {
+    var st = ""; for (var i = 1; i <= 3; i++) st += "<span class='" + (i <= sc.stars ? "" : "off") + "'>★</span>";
+    var h = "<div class='stars'>" + st + "</div><div style='text-align:center'><b>" + sc.pct + "%</b> destruído</div>" +
+            "<div style='margin:10px 0'>Saque: " + (got.length ? got.join(", ") : "nada") + "<br>Troféus: " + (tdelta > 0 ? "+" : "") + tdelta + "</div>" +
+            "<div class='acts' style='justify-content:center'><button class='btn' onclick='closeResult()'>Voltar para a aldeia</button></div>";
+    $('result-body').innerHTML = h; $('result').classList.add('show');
+    $('bhud').style.display = 'none'; $('troops').style.display = 'none';
+}
+function closeResult() { $('result').classList.remove('show'); showMainUI(true); centerOn(centerB()); requestRender(); updateTop(); }
 
 // =====================================================
-//  LOOP DO JOGO E INTERFACE
+//  ONLINE (servidor): sua aldeia fica visível para outros atacarem
 // =====================================================
-function tick1s() {
-    var now = new Date();
-    $('clock').innerText = ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2) + ":" + ("0" + now.getSeconds()).slice(-2);
-    sec++;
-    if (G.lastSeen && Date.now() - G.lastSeen > 120000) applyOfflineRaids(); // aba ficou congelada
-    G.lastSeen = Date.now();
-    if (sec % 5 === 0) personalTick();
-    if (G.job) { jobClock++; if (jobClock >= JOBS[G.job].period) { jobClock = 0; doAction(); } }
-    if (nowH() >= 21 && B.lastRaid !== todayKey()) { B.lastRaid = todayKey(); nightPhase(); }
-    if (sec % 5 === 0) postStats();
-    updateUI();
+function apiPost(path, body) {
+    return new Promise(function (resolve, reject) {
+        if (!SERVER_URL) { reject(new Error("sem servidor")); return; }
+        var done = false, t = setTimeout(function () { if (!done) { done = true; reject(new Error("timeout")); } }, 9000);
+        fetch(SERVER_URL + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+            .then(function (r) { return r.json(); })
+            .then(function (j) { if (!done) { done = true; clearTimeout(t); resolve(j); } })
+            .catch(function (e) { if (!done) { done = true; clearTimeout(t); reject(e); } });
+    });
+}
+var onlineOk = false, lastBase = "";
+function snapshot() { return S.vil.filter(function (b) { return !building(b); }).map(function (b) { return [DEF[b.type].idx, b.lvl, b.x, b.y]; }); }
+function syncNow() {
+    if (!S || !SERVER_URL || BT || SC) return;
+    var base = JSON.stringify(snapshot()), body = { id: S.id, name: S.name, trophies: S.trophies, res: S.res, troops: S.troops, lvl: cLvl() };
+    if (base !== lastBase) body.base = snapshot();
+    var prev = S.lastSync || 0;
+    apiPost("/api/sync", body).then(function (r) {
+        if (!r || !r.ok) return;
+        onlineOk = true; lastBase = base; S.lastSync = now();
+        S.shield = r.shield;
+        if (r.tdelta) S.trophies = Math.max(0, S.trophies + r.tdelta);
+        var lost = [];
+        for (var k in r.loss) if (r.loss[k] > 0) { var l = Math.min(S.res[k], r.loss[k]); S.res[k] -= l; lost.push(l + " " + RESN[k]); }
+        (r.logs || []).forEach(function (e) {
+            var off = prev && e.t < prev - 5000 ? " enquanto você estava off-line" : "";
+            var lt = []; for (var q in e.loot) if (e.loot[q] > 0) lt.push(e.loot[q] + " " + RESN[q]);
+            S.log.push({ t: e.t, text: e.by + " atacou a sua base" + off + "! " + e.destr + "% destruído, " + e.stars + " estrela" + (e.stars === 1 ? "" : "s") + ". " + (lt.length ? "Levou " + lt.join(", ") + "." : "Não levou nada.") });
+        });
+        if (r.logs && r.logs.length) { toast(r.logs[r.logs.length - 1].by + " atacou a sua base!"); }
+        updateTop();
+    }).catch(function () { onlineOk = false; });
+}
+function searchPlayer(skip) {
+    var msg = $('atk-msg'); if (msg) msg.innerText = "Procurando um jogador...";
+    apiPost("/api/search", { id: S.id, skip: skip || [] }).then(function (r) {
+        if (r && r.found) {
+            var p = r.p, v = p.base.map(function (e, i) { var type = TYPES[e[0]]; return { id: i + 1, type: type, lvl: Math.max(1, Math.min(DEF[type].maxLvl, e[1])), x: e[2], y: e[3], hp: 0, bEnd: 0, uEnd: 0, last: 0 }; });
+            if (!v.some(function (b) { return b.type === 'center'; })) { toast("Base inválida, procurando outra..."); return searchPlayer((skip || []).concat([p.id])); }
+            scoutBase({ id: p.id, name: p.name, bot: false, trophies: p.trophies, lvl: p.lvl || 1, vil: v, troops: p.troops || { zombie: 0, spitter: 0, tank: 0 }, res: p.res || { food: 0, water: 0, scrap: 0 } });
+        } else { if (msg) msg.innerText = "Nenhum jogador disponível agora (todos com escudo ou off-line há muito tempo). Tente um bot!"; }
+    }).catch(function () { if (msg) msg.innerText = "Não consegui falar com o servidor. Tente um bot!"; });
 }
 
-function updateUI() {
-    var players = getPlayers(), n = players.length, lvl = lvlFromN(n);
-    $('player-tag').innerText = me.name;
-    $('hud-uf').innerText = me.uf;
-    $('hp').innerText = B.hp; $('defense').innerText = B.defense; $('food').innerText = B.food; $('water').innerText = B.water;
-    $('scrap').innerText = B.scrap; $('silver').innerText = B.silver;
-    $('b-hp').style.width = Math.min(100, B.hp) + "%";
-    $('b-def').style.width = Math.min(100, B.defense / 2) + "%";
-    $('b-food').style.width = Math.min(100, B.food * 2) + "%";
-    $('b-water').style.width = Math.min(100, B.water * 2) + "%";
-    $('hud-res').innerText = "❤️" + B.hp + "%  🛡️" + B.defense + "  🍖" + B.food + "  🥤" + B.water + "  💰" + B.scrap + "  🥈" + B.silver;
-    $('hud-wx').innerText = (isRaining() ? "🌧️ " : "") + (localWx.temp !== null ? WX_TEXT[localWx.kind] + " " + Math.round(localWx.temp) + "°C" : "");
-    var stName = stByUf[me.uf] ? stByUf[me.uf].n : "-";
-    $('base-name').innerText = stName; $('tot-name').innerText = stName;
-    // total da base: soma de todos os jogadores desta base (só desta base)
-    var t = (online && T) ? T : { food: B.food, water: B.water, scrap: B.scrap, defense: B.defense, silver: B.silver, players: 1 };
-    $('tot-food').innerText = t.food; $('tot-water').innerText = t.water; $('tot-scrap').innerText = t.scrap;
-    $('tot-def').innerText = t.defense; $('tot-silver').innerText = t.silver; $('tot-n').innerText = t.players;
-    $('lvl').innerText = lvl; $('lvl-name').innerText = LEVEL_NAMES[lvl]; $('bp').innerText = n;
-    var need = lvl === 1 ? 3 : (lvl === 2 ? 5 : (lvl === 3 ? 10 : 0));
-    $('lvl-next').innerText = need ? "(próximo nível com " + need + ")" : "(nível máximo)";
-    if (online) setOnlineLine("🌐 Online agora na base: " + n + (n === 1 ? " jogador" : " jogadores"));
-    if (lvl !== lastLevel) { toast(lvl > lastLevel ? "🏕️ A base subiu para o nível " + lvl + ": " + LEVEL_NAMES[lvl] + "!" : "🏕️ A base voltou para o nível " + lvl + "."); lastLevel = lvl; }
-    renderTrader();
-    var cur = $('jobs').getAttribute('data-job');
-    if (cur !== G.job) { buildJobs(); $('jobs').setAttribute('data-job', G.job); }
+// =====================================================
+//  RELÓGIO DO JOGO (1 vez por segundo)
+// =====================================================
+function finishWork() {
+    var t = now();
+    S.vil.forEach(function (b) {
+        if (b.bEnd && b.bEnd <= t) { b.last = b.bEnd; b.bEnd = 0; b.hp = maxHp(b); logAdd(DEF[b.type].name + " ficou pronto."); staticDirty = true; }
+        if (b.uEnd && b.uEnd <= t) { b.lvl++; b.uEnd = 0; b.hp = maxHp(b); logAdd(DEF[b.type].name + " agora é nível " + b.lvl + "."); staticDirty = true; }
+    });
 }
-
-function bootGame() {
-    $('start-overlay').classList.remove('show');
-    if (!me.id) me.id = newId();
-    if (typeof me.shirt !== 'number') me.shirt = hueFromId(me.id);
-    genDecor(); AV = {}; welcomed = false; logs = []; renderLogs();
-    if (!gameStarted) { applyOfflineRaids(); G.lastSeen = Date.now(); }
-    if (!gameStarted && !B.lastRaid && nowH() >= 21) B.lastRaid = todayKey();
-    if (!gameStarted) {
-        gameStarted = true;
-        setInterval(tick1s, 1000);
-        setInterval(saveLocal, 2000); // salva sozinho a cada 2 segundos
-        setInterval(fetchLocalWeather, 600000);
-        window.addEventListener('beforeunload', saveLocal);
+function catchUp() { // ao abrir o jogo (ou se a aba ficou congelada): obras, treino e ataques de bots que passaram
+    finishWork(); processTraining(false); buildOcc();
+    var t = now();
+    if (S.nextBot <= t) {
+        var n = Math.min(3, Math.floor((t - S.nextBot) / BOT_EVERY) + 1), lines = [];
+        for (var i = 0; i < n; i++) lines.push(startBotAttack(false));
+        S.nextBot = t + BOT_EVERY;
+        logAdd("Os zumbis atacaram a sua base quando você estava off-line!");
+        toast("Os zumbis atacaram a sua base quando você estava off-line!");
+        setTimeout(openLog, 800);
     }
-    lastLevel = 1;
-    buildJobs();
-    startOnline();
-    fetchLocalWeather();
-    loadGeo(function () {});
-    layout();
-    updateUI();
-    saveLocal();
+    S.lastSeen = now();
 }
+function setText(el, t) { if (el._t !== t) { el._t = t; el.innerText = t; } }
+function updateTop() {
+    if (!S) return;
+    var cap = storeCap();
+    setText($('r-food'), Math.floor(S.res.food) + "/" + cap);
+    setText($('r-water'), Math.floor(S.res.water) + "/" + cap);
+    setText($('r-scrap'), Math.floor(S.res.scrap) + "/" + cap);
+    setText($('r-bld'), (builders() - Math.min(busy(), builders())) + "/" + builders());
+    setText($('r-cup'), String(S.trophies));
+    setText($('who'), S.name + " - Centro nível " + cLvl());
+    var l = S.shield - now();
+    setText($('next'), l > 0 ? "Escudo: " + fmtT(l / 1000) : "");
+}
+function tick() {
+    if (!S || document.hidden) return;
+    if (S.lastSeen && now() - S.lastSeen > 120000 && !BT && !SC) catchUp();
+    S.lastSeen = now();
+    finishWork();
+    processTraining(V === S.vil && !BT && !SC);
+    if (!BT && !SC && now() >= S.nextBot) { S.nextBot = now() + BOT_EVERY; startBotAttack(true); }
+    updateTop(); updateSel();
+    if (!BT && !SC && !placing) requestRender();
+}
+
+// =====================================================
+//  CHAT (precisa do servidor)
+// =====================================================
+var chatSince = 0, chatMsgs = [], chatUnread = 0, chatOpen = false, chatFirst = true;
+function pollChat() {
+    if (!S || !SERVER_URL) return;
+    apiPost("/api/chat/poll", { id: S.id, since: chatSince }).then(function (r) {
+        if (!r || !r.msgs) return;
+        r.msgs.forEach(function (m) { chatMsgs.push(m); if (!chatOpen && !chatFirst) chatUnread++; });
+        chatFirst = false;
+        if (r.last > chatSince) chatSince = r.last;
+        if (chatMsgs.length > 80) chatMsgs.splice(0, chatMsgs.length - 80);
+        if (chatOpen) renderChat();
+        var b = $('badge'); b.style.display = chatUnread > 0 ? 'inline' : 'none'; b.innerText = chatUnread > 9 ? "9+" : chatUnread;
+    }).catch(function () { /* sem conexão */ });
+}
+function renderChat() {
+    var box = $('chat-body'), h = "";
+    if (!SERVER_URL) h = "<div class='need'>O chat precisa do servidor. Abra o jogo pelo endereço do servidor.</div>";
+    chatMsgs.forEach(function (m) {
+        var d = new Date(m.t), hh = ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
+        h += "<div class='cmsg'><i>" + hh + "</i> <b>" + m.n.replace(/</g, "&lt;") + ":</b> " + m.text.replace(/</g, "&lt;") + "</div>";
+    });
+    box.innerHTML = h || "<div class='cmsg'>Ninguém falou ainda. Seja o primeiro!</div>";
+    box.scrollTop = box.scrollHeight;
+}
+function openChat() {
+    if (BT || SC) return;
+    cancelPlace(); closeModals();
+    chatOpen = true; chatUnread = 0; $('badge').style.display = 'none';
+    $('chat').classList.add('show'); renderChat(); pollChat();
+}
+function sendChat() {
+    var inp = $('chat-in'), text = inp.value.trim();
+    if (!text) return;
+    if (!SERVER_URL) { toast("O chat precisa do servidor."); return; }
+    inp.value = "";
+    apiPost("/api/chat/send", { id: S.id, text: text }).then(function (r) { if (r && r.ok) pollChat(); else toast((r && r.msg) || "Não foi possível enviar."); }).catch(function () { toast("Sem conexão com o servidor."); });
+}
+$('chat-in').addEventListener('keydown', function (e) { if (e.keyCode === 13) sendChat(); });
+
+function startGame() {
+    resize();
+    ts = Math.max(18, Math.min(46, Math.round(vw / 17)));
+    useVillage(S.vil); catchUp();
+    centerOn(centerB());
+    staticDirty = true; showMainUI(true); updateTop(); requestRender(); save();
+    syncNow();
+    if (!startGame.started) {
+        startGame.started = true;
+        setInterval(tick, 1000);
+        setInterval(save, 3000);
+        setInterval(syncNow, 25000);
+        setInterval(function () { if (chatOpen) pollChat(); }, 3000);
+        setInterval(pollChat, 20000);
+        pollChat();
+        window.addEventListener('beforeunload', function () { save(true); });
+        window.addEventListener('resize', resize);
+        document.addEventListener('visibilitychange', function () { if (document.hidden) save(true); else { tick(); requestRender(); } });
+    }
+}
+window.onload = function () { if (load()) { $('start').classList.remove('show'); startGame(); } };
 </script>
 </body>
 </html>
