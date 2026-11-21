@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Z-Brasil: Aldeia</title>
+<link rel="icon" href="data:,">
 <style>
     html, body { margin:0; padding:0; height:100%; overflow:hidden; background:#16210f; color:#fff; font-family:system-ui, Arial, sans-serif; -webkit-user-select:none; user-select:none; }
     #c { position:fixed; left:0; top:0; width:100%; height:100%; display:block; touch-action:none; }
@@ -127,7 +128,7 @@
     <div style="display:flex;gap:6px;padding:8px"><input id="chat-in" maxlength="140" placeholder="Mensagem..." style="flex:1;padding:9px;background:#2b3a20;color:#fff;border:2px solid #4caf50;border-radius:8px;min-width:0"><button class="btn sm" onclick="sendChat()">Enviar</button></div></div></div>
 <div class="modal" id="result"><div class="box"><h2>Resultado do ataque</h2><div class="body" id="result-body"></div></div></div>
 <div class="modal show" id="start"><div class="box"><h2>Z-BRASIL: ALDEIA</h2>
-    <div style="margin-top:10px;color:#c5e1a5;">Construa sua aldeia, treine zumbis e ataque outras bases. Os bots atacam a sua a cada 90 minutos.</div>
+    <div style="margin-top:10px;color:#c5e1a5;">Construa sua aldeia, treine zumbis e ataque as bases de outros jogadores.</div>
     <input id="name-in" maxlength="15" placeholder="Seu nome de sobrevivente">
     <button class="btn" onclick="newGame()">Começar</button>
 </div></div>
@@ -144,7 +145,7 @@ var SERVER_URL = SERVER_URL_MANUAL || ((location.protocol === "http:" || locatio
 
 var GRID = 30, LT = 48, LTT = 32;
 var SAVE_KEY = "zbrasil_aldeia2";
-var BOT_EVERY = 90 * 60 * 1000;   // os bots atacam a cada 90 minutos
+var RAID_EVERY = 90 * 60 * 1000;   // a aldeia é atacada a cada 90 minutos
 var TRIG = 6;                     // o bunker abre quando um inimigo chega a esta distância
 var BAD = ["pau","pinto","bunda","vagina","penis","buceta","caralho","droga","maconha","cocaina","crack","lança","arma","fuzil","pistola","oitão","assassinar","matar","biqueira","trafico"];
 
@@ -184,9 +185,9 @@ var SHOP_ORDER = ["tower", "wall", "market", "well", "cemetery", "bunker", "hut"
 var RESN = { food: "comida", water: "água", scrap: "sucata" };
 
 var TROOP = {
-    zombie: { name: "Zumbi", space: 1, hp: 45, dmg: 8, sp: 1.1, range: 0.7, cost: { food: 10, water: 5 }, time: 8, unlock: 1, col: "#7cb342", desc: "O zumbi inicial. Ataca de perto." },
-    spitter: { name: "Zumbi Cuspidor", space: 2, hp: 28, dmg: 9, sp: 1.0, range: 3.5, cost: { food: 25, water: 15 }, time: 18, unlock: 2, col: "#9ccc65", desc: "Cospe uma bola verde brilhante de longe, como uma arqueira." },
-    tank: { name: "Zumbi Escudeiro", space: 5, hp: 220, dmg: 6, sp: 0.9, range: 0.7, cost: { food: 60, water: 40 }, time: 45, unlock: 3, col: "#558b2f", desc: "Segura uma porta de ferro e fica na frente, protegendo as tropas." }
+    zombie: { name: "Zumbi", space: 1, hp: 45, dmg: 8, sp: 1.1, range: 0.7, time: 8, unlock: 1, col: "#7cb342", desc: "O zumbi inicial. Ataca de perto." },
+    spitter: { name: "Zumbi Cuspidor", space: 2, hp: 28, dmg: 9, sp: 1.0, range: 3.5, time: 18, unlock: 2, col: "#9ccc65", desc: "Cospe uma bola verde brilhante de longe, como uma arqueira." },
+    tank: { name: "Zumbi Escudeiro", space: 5, hp: 220, dmg: 6, sp: 0.9, range: 0.7, time: 45, unlock: 3, col: "#558b2f", desc: "Segura uma porta de ferro e fica na frente, protegendo as tropas." }
 };
 var TROOP_ORDER = ["zombie", "spitter", "tank"];
 
@@ -267,17 +268,14 @@ function trainTroop(type) {
     var T = TROOP[type];
     if (cemLvl() < T.unlock) { toast("Precisa de um Cemitério nível " + T.unlock + "."); return; }
     if (houseUsed() + queueSpace() + T.space > houseCap()) { toast("Sem espaço nos bunkers. Construa ou melhore um Bunker."); return; }
-    if (!canPay(T.cost)) { toast("Faltam recursos."); return; }
-    pay(T.cost);
     if (!S.queue.length) S.trainAt = now();
     S.queue.push(type);
-    updateTop(); openArmy(true); save();
+    openArmy(true); save();
 }
 function cancelTrain(i) {
-    var type = S.queue[i]; if (!type) return;
-    var c = TROOP[type].cost; for (var k in c) S.res[k] = Math.min(storeCap(), S.res[k] + c[k]);
+    if (!S.queue[i]) return;
     S.queue.splice(i, 1); if (!S.queue.length) S.trainAt = now();
-    updateTop(); openArmy(true);
+    openArmy(true);
 }
 function processTraining(visual) {
     var n = cemeteries().length;
@@ -309,7 +307,11 @@ function save(force) {
 function load() {
     try {
         var r = localStorage.getItem(SAVE_KEY);
-        if (r) { S = JSON.parse(r); lastSaved = r; S.lastSeen = parseInt(localStorage.getItem("zb_seen2"), 10) || now(); return true; }
+        if (r) {
+            S = JSON.parse(r); lastSaved = r; S.lastSeen = parseInt(localStorage.getItem("zb_seen2"), 10) || now();
+            if (S.nextRaid == null) { S.nextRaid = now() + RAID_EVERY; S.raidN = 0; }
+            return true;
+        }
     } catch (e) { /* ignora */ }
     return false;
 }
@@ -318,10 +320,10 @@ function newGame() {
     if (low.length < 3) { alert("O nome precisa ter pelo menos 3 letras."); return; }
     for (var i = 0; i < BAD.length; i++) if (low.indexOf(BAD[i]) !== -1) { alert("Esse nome tem palavras proibidas. Escolha outro."); return; }
     S = { id: newId(), name: raw, res: { food: 300, water: 300, scrap: 600 }, vil: [], nid: 1, troops: { zombie: 0, spitter: 0, tank: 0 }, queue: [], trainAt: now(),
-          trophies: 100, shield: now() + 12 * 3600 * 1000, nextBot: now() + BOT_EVERY, botN: 0, lastSeen: now(), log: [] };
+          trophies: 100, shield: now() + 12 * 3600 * 1000, nextRaid: now() + RAID_EVERY, raidN: 0, lastSeen: now(), log: [] };
     S.vil.push({ id: S.nid++, type: "center", lvl: 1, x: 13, y: 13, hp: 400, bEnd: 0, uEnd: 0, last: now() });
     S.vil.push({ id: S.nid++, type: "hut", lvl: 1, x: 9, y: 14, hp: 90, bEnd: 0, uEnd: 0, last: 0 });
-    logAdd("Bem-vindo, " + raw + "! Construa Torres, um Cemitério e um Bunker: os bots atacam a cada 90 minutos.");
+    logAdd("Bem-vindo, " + raw + "! Construa Torres, um Cemitério e um Bunker para defender a sua aldeia.");
     $('start').classList.remove('show');
     startGame();
 }
@@ -879,9 +881,9 @@ function openArmy(keep) {
     if (!cemeteries().length) h += "<div class='need'>Construa um Cemitério na Loja para treinar zumbis.</div>";
     TROOP_ORDER.forEach(function (k) {
         var T = TROOP[k], locked = cemLvl() < T.unlock, q = S.queue.filter(function (x) { return x === k; }).length;
-        var can = !locked && canPay(T.cost) && used + queueSpace() + T.space <= cap;
+        var can = !locked && used + queueSpace() + T.space <= cap;
         h += "<div class='item'><div class='t'><b>" + T.name + "</b> x" + S.troops[k] + (q ? " (+" + q + " na fila)" : "") + "<small>" + T.desc + "</small>" +
-             "<small>Vida " + T.hp + " | Dano " + T.dmg + " | Espaço " + T.space + " | " + costText(T.cost) + " | " + fmtT(T.time) + "</small>" +
+             "<small>Vida " + T.hp + " | Dano " + T.dmg + " | Ocupa " + T.space + " de espaço no bunker | " + fmtT(T.time) + "</small>" +
              (locked ? "<small class='need'>Precisa de Cemitério nível " + T.unlock + "</small>" : "") + "</div>" +
              "<button class='btn sm' " + (can ? "" : "disabled") + " onclick=\"trainTroop('" + k + "')\">Treinar</button></div>";
     });
@@ -921,10 +923,10 @@ function stepWalkers(dt) {
 }
 
 // =====================================================
-//  BASES DE BOTS
+//  OUTRAS ALDEIAS (quando não há jogador disponível)
 // =====================================================
-var BOT_NAMES = ["Zé do Brejo", "Dona Marta", "Capitão Z", "Tio Chico", "Mestre Ricardão", "Sargento Lima", "Vovó Nena", "Doutor Mata-Mato", "Cabo Pereira", "Seu Raimundo", "Madame Z", "Professor Tomás"];
-function genBot(level, seed) {
+var RIVAL_NAMES = ["Zé do Brejo", "Dona Marta", "Capitão Z", "Tio Chico", "Mestre Ricardão", "Sargento Lima", "Vovó Nena", "Doutor Mata-Mato", "Cabo Pereira", "Seu Raimundo", "Madame Z", "Professor Tomás"];
+function genRival(level, seed) {
     var r = rng(seed), v = [], i;
     function add(type, x, y, l) { v.push({ id: v.length + 1, type: type, lvl: l, x: x, y: y, hp: DEF[type].hp[l - 1], bEnd: 0, uEnd: 0, last: 0 }); }
     function fits(type, x, y) {
@@ -955,11 +957,11 @@ function genBot(level, seed) {
     for (var y = y0 + 1; y < y1; y++) { if (fits("wall", x0, y)) add("wall", x0, y, Math.max(1, bl - 1)); if (fits("wall", x1, y)) add("wall", x1, y, Math.max(1, bl - 1)); }
     var troops = { zombie: 3 + level * 2, spitter: level >= 2 ? level : 0, tank: level >= 3 ? level - 1 : 0 };
     var rs = Math.round(150 * level * level * (0.8 + r() * 0.4));
-    return { id: "bot-" + seed, name: BOT_NAMES[Math.floor(r() * BOT_NAMES.length)], bot: true, trophies: 60 + level * 90 + Math.floor(r() * 40), lvl: level, vil: v, troops: troops, res: { food: rs, water: rs, scrap: rs } };
+    return { id: "r" + seed, name: RIVAL_NAMES[Math.floor(r() * RIVAL_NAMES.length)], sim: true, trophies: 60 + level * 90 + Math.floor(r() * 40), lvl: level, vil: v, troops: troops, res: { food: rs, water: rs, scrap: rs } };
 }
-function botLevelForMe() { return Math.max(1, Math.min(4, Math.round(cLvl() * 0.7 + S.trophies / 350))); }
+function rivalLevel() { return Math.max(1, Math.min(4, Math.round(cLvl() * 0.7 + S.trophies / 350))); }
 
-function botArmy(budget) { // lista de zumbis do ataque de bots
+function raidArmy(budget) { // lista de zumbis do ataque
     var list = [], cl = cLvl(), left = budget;
     while (left >= 1) {
         var roll = Math.random(), type = 'zombie';
@@ -971,7 +973,7 @@ function botArmy(budget) { // lista de zumbis do ataque de bots
 }
 
 // =====================================================
-//  BATALHA (mesma simulação para ataque de bots, defesa e ataque seu)
+//  BATALHA (mesma simulação para defesa e ataque)
 // =====================================================
 function bCenter(b) { var s = DEF[b.type].size; return { x: b.x + s / 2, y: b.y + s / 2 }; }
 function distRect(z, b) {
@@ -1257,7 +1259,7 @@ function updateBHud() {
     if (BT.kind === 'attack') {
         $('b-stat').innerText = "Tempo " + fmtT(left) + " | " + sc.pct + "% | " + new Array(sc.stars + 1).join("★") + new Array(4 - sc.stars).join("☆");
         drawTroopCards();
-    } else $('wave-txt').innerText = "Ataque de bots! Zumbis: " + BT.us.filter(function (u) { return u.side === 'a'; }).length + BT.q.length + " | " + sc.pct + "%";
+    } else $('wave-txt').innerText = "Sua aldeia está sob ataque! Zumbis: " + BT.us.filter(function (u) { return u.side === 'a'; }).length + BT.q.length + " | " + sc.pct + "%";
 }
 function troopIcon(k) {
     var cvs = document.createElement('canvas'); cvs.width = cvs.height = 88;
@@ -1314,39 +1316,33 @@ function btEnd() {
     if (B.kind === 'defend') endDefense(B, sc); else endAttack(B, sc);
 }
 
-// ---------- bots atacam a sua aldeia ----------
-function startBotAttack(live) {
-    var cl = cLvl(), budget = 2 + 2 * cl + Math.floor(S.trophies / 33) + Math.min(8, S.botN);
-    var cfg = { kind: 'defend', vil: S.vil, limit: 150, auto: botArmy(budget), hpA: 1 + (cl - 1) * 0.12 + S.botN * 0.01, hpD: 1,
-                defTroops: { zombie: S.troops.zombie, spitter: S.troops.spitter, tank: S.troops.tank }, info: { name: "Bots" } };
+// ---------- ataques à sua aldeia (a cada 90 minutos, sem aviso no diário) ----------
+function startRaid(live) {
+    var cl = cLvl(), budget = 2 + 2 * cl + Math.floor(S.trophies / 33) + Math.min(8, S.raidN);
+    var cfg = { kind: 'defend', vil: S.vil, limit: 150, auto: raidArmy(budget), hpA: 1 + (cl - 1) * 0.12 + S.raidN * 0.01, hpD: 1,
+                defTroops: { zombie: S.troops.zombie, spitter: S.troops.spitter, tank: S.troops.tank }, info: { name: "Atacante" } };
     btStart(cfg);
-    S.botN++;
+    S.raidN++;
     if (live) {
         BT.live = true;
         cancelPlace(); select(null); closeModals();
         $('wave').style.display = 'block'; $('speed-btn').innerText = "Rápido";
-        toast("Os bots estão atacando a sua aldeia!");
+        toast("Sua aldeia está sendo atacada!");
         startLoop();
     } else {
         var g = 0; while (!BT.over && g++ < 3000) btStep(0.1);
         var sc = btScore(), B = BT; BT = null;
-        return endDefense(B, sc, true);
+        endDefense(B, sc, true);
     }
 }
 function endDefense(B, sc, offline) {
-    var frac = 0.2 * sc.pct / 100, lost = [], k;
-    for (k in S.res) { var l = Math.floor(S.res[k] * frac); S.res[k] -= l; if (l) lost.push(l + " " + RESN[k]); }
-    var tdelta = sc.stars > 0 ? -sc.stars * 4 : 3;
-    S.trophies = Math.max(0, S.trophies + tdelta);
-    var t = "Ataque de bots: " + sc.pct + "% da aldeia destruída (" + sc.stars + " estrela" + (sc.stars === 1 ? "" : "s") + "). " + (lost.length ? "Perdeu " + lost.join(", ") + ". " : "Nada foi roubado. ") + "Troféus " + (tdelta > 0 ? "+" : "") + tdelta + ".";
-    logAdd(t);
+    var frac = 0.2 * sc.pct / 100, k;
+    for (k in S.res) S.res[k] -= Math.floor(S.res[k] * frac);
+    S.trophies = Math.max(0, S.trophies + (sc.stars > 0 ? -sc.stars * 4 : 3));
     restoreOwn();
-    S.vil.forEach(function (b) { if (b.type === 'center') centerSel = b; });
     updateTop(); save();
-    if (!offline) { toast(t); showMainUI(true); requestRender(); }
-    return t;
+    if (!offline) { showMainUI(true); requestRender(); }
 }
-var centerSel = null;
 
 // ---------- você ataca ----------
 function openAttack() {
@@ -1355,16 +1351,26 @@ function openAttack() {
     var n = armyCount(), h = "";
     h += "<div>Seu exército: <b>" + n + "</b> zumbi" + (n === 1 ? "" : "s") + " (" + S.troops.zombie + " comuns, " + S.troops.spitter + " cuspidores, " + S.troops.tank + " escudeiros)</div>";
     if (!n) h += "<div class='need' style='margin:8px 0'>Você não tem zumbis. Construa um Cemitério e um Bunker e treine zumbis em Exército.</div>";
-    h += "<div style='margin:6px 0;color:#aab99a;font-size:13px'>Os zumbis que você soltar são gastos no ataque. Atacar quebra o seu escudo contra jogadores.</div>";
-    h += "<div class='acts'><button class='btn' " + (n && SERVER_URL ? "" : "disabled") + " onclick='searchPlayer()'>Procurar jogador online</button>" +
-         "<button class='btn alt' " + (n ? "" : "disabled") + " onclick='attackBot()'>Atacar um bot (treino)</button></div>";
-    if (!SERVER_URL) h += "<div class='need' style='margin-top:8px'>Abra o jogo pelo servidor para atacar jogadores. Contra bots dá para jogar agora.</div>";
+    h += "<div style='margin:6px 0;color:#aab99a;font-size:13px'>Os zumbis que você soltar são gastos no ataque. Atacar quebra o seu escudo.</div>";
+    h += "<div class='acts'><button class='btn red' " + (n ? "" : "disabled") + " onclick='findOpponent()'>Atacar jogadores</button></div>";
     h += "<div id='atk-msg' style='margin-top:8px;color:#ffcc80'></div>";
     $('atk-body').innerHTML = h; $('atk').classList.add('show');
 }
-function attackBot() {
-    var lvl = botLevelForMe();
-    scoutBase(genBot(lvl, Math.floor(Math.random() * 1e9)));
+function findOpponent(skip) {
+    var msg = $('atk-msg'); if (msg) msg.innerText = "Procurando jogadores...";
+    function other() { // sem ninguém disponível no momento: aparece outra aldeia para atacar
+        var info = genRival(rivalLevel(), Math.floor(Math.random() * 1e9));
+        info.trophies = Math.max(0, S.trophies + Math.round((Math.random() - 0.5) * 90));
+        scoutBase(info);
+    }
+    if (!SERVER_URL) { other(); return; }
+    apiPost("/api/search", { id: S.id, skip: skip || [] }).then(function (r) {
+        if (r && r.found) {
+            var p = r.p, v = p.base.map(function (e, i) { var type = TYPES[e[0]]; return { id: i + 1, type: type, lvl: Math.max(1, Math.min(DEF[type].maxLvl, e[1])), x: e[2], y: e[3], hp: 0, bEnd: 0, uEnd: 0, last: 0 }; });
+            if (!v.some(function (b) { return b.type === 'center'; })) return findOpponent((skip || []).concat([p.id]));
+            scoutBase({ id: p.id, name: p.name, sim: false, trophies: p.trophies, lvl: p.lvl || 1, vil: v, troops: p.troops || { zombie: 0, spitter: 0, tank: 0 }, res: p.res || { food: 0, water: 0, scrap: 0 } });
+        } else other();
+    }).catch(other);
 }
 function scoutBase(info) {
     closeModals();
@@ -1372,7 +1378,7 @@ function scoutBase(info) {
     useVillage(info.vil);
     showMainUI(false); fitMap(); requestRender();
     $('bhud').style.display = 'flex';
-    $('b-info').innerHTML = (info.bot ? "Bot: " : "Jogador: ") + "<b>" + info.name + "</b> | Centro nível " + info.lvl + " | " + info.trophies + " troféus";
+    $('b-info').innerHTML = "Jogador: <b>" + info.name + "</b> | Centro nível " + info.lvl + " | " + info.trophies + " troféus";
     $('b-stat').innerHTML = "Saque possível: " + Math.floor(info.res.food * 0.25) + " comida, " + Math.floor(info.res.water * 0.25) + " água, " + Math.floor(info.res.scrap * 0.25) + " sucata";
     $('b-btns').innerHTML = "<button class='btn red' onclick='beginAttack()'>Atacar!</button><button class='btn alt' onclick='nextOpponent()'>Próximo</button><button class='btn alt' onclick='leaveScout()'>Voltar</button>";
 }
@@ -1380,19 +1386,15 @@ function leaveScout() {
     SC = null; $('bhud').style.display = 'none'; $('troops').style.display = 'none';
     restoreOwn(); showMainUI(true); centerOn(centerB()); requestRender(); updateTop();
 }
-function nextOpponent() {
-    if (SC && SC.bot) { attackBot(); return; }
-    var skip = SC ? [SC.id] : [];
-    searchPlayer(skip);
-}
+function nextOpponent() { findOpponent(SC && !SC.sim ? [SC.id] : []); }
 function beginAttack() {
     if (!SC) return;
     var info = SC; SC = null;
     var army = { zombie: S.troops.zombie, spitter: S.troops.spitter, tank: S.troops.tank };
-    btStart({ kind: 'attack', vil: info.vil, limit: 180, hpA: 1, hpD: info.bot ? 1 + (info.lvl - 1) * 0.1 : 1, army: army, defTroops: info.troops, info: info });
+    btStart({ kind: 'attack', vil: info.vil, limit: 180, hpA: 1, hpD: info.sim ? 1 + (info.lvl - 1) * 0.1 : 1, army: army, defTroops: info.troops, info: info });
     BT.sel = army.zombie ? 'zombie' : (army.spitter ? 'spitter' : 'tank');
     S.shield = 0;
-    $('b-info').innerHTML = (info.bot ? "Bot: " : "Jogador: ") + "<b>" + info.name + "</b>";
+    $('b-info').innerHTML = "Jogador: <b>" + info.name + "</b>";
     $('b-btns').innerHTML = "<button class='btn red' onclick='finishNow()'>Terminar</button>";
     $('troops')._key = ""; drawTroopCards(); updateBHud();
     toast("Toque no mapa (longe das construções) para soltar zumbis. Segure para soltar vários.");
@@ -1415,7 +1417,7 @@ function endAttack(B, sc) {
         restoreOwn(); updateTop(); save();
         showResult(sc, got, tdelta, info);
     }
-    if (info.bot) { finish(loot, sc.stars > 0 ? sc.stars * 5 : -3); return; }
+    if (info.sim) { finish(loot, sc.stars > 0 ? sc.stars * 5 : -3); return; }
     apiPost("/api/result", { id: S.id, defId: info.id, stars: sc.stars, destruction: sc.pct, loot: loot }).then(function (r) {
         if (r && r.ok) finish(r.loot, r.tdelta); else finish({ food: 0, water: 0, scrap: 0 }, 0);
     }).catch(function () { toast("Não consegui falar com o servidor: o saque não foi registrado."); finish({ food: 0, water: 0, scrap: 0 }, 0); });
@@ -1466,17 +1468,6 @@ function syncNow() {
         updateTop();
     }).catch(function () { onlineOk = false; });
 }
-function searchPlayer(skip) {
-    var msg = $('atk-msg'); if (msg) msg.innerText = "Procurando um jogador...";
-    apiPost("/api/search", { id: S.id, skip: skip || [] }).then(function (r) {
-        if (r && r.found) {
-            var p = r.p, v = p.base.map(function (e, i) { var type = TYPES[e[0]]; return { id: i + 1, type: type, lvl: Math.max(1, Math.min(DEF[type].maxLvl, e[1])), x: e[2], y: e[3], hp: 0, bEnd: 0, uEnd: 0, last: 0 }; });
-            if (!v.some(function (b) { return b.type === 'center'; })) { toast("Base inválida, procurando outra..."); return searchPlayer((skip || []).concat([p.id])); }
-            scoutBase({ id: p.id, name: p.name, bot: false, trophies: p.trophies, lvl: p.lvl || 1, vil: v, troops: p.troops || { zombie: 0, spitter: 0, tank: 0 }, res: p.res || { food: 0, water: 0, scrap: 0 } });
-        } else { if (msg) msg.innerText = "Nenhum jogador disponível agora (todos com escudo ou off-line há muito tempo). Tente um bot!"; }
-    }).catch(function () { if (msg) msg.innerText = "Não consegui falar com o servidor. Tente um bot!"; });
-}
-
 // =====================================================
 //  RELÓGIO DO JOGO (1 vez por segundo)
 // =====================================================
@@ -1487,16 +1478,13 @@ function finishWork() {
         if (b.uEnd && b.uEnd <= t) { b.lvl++; b.uEnd = 0; b.hp = maxHp(b); logAdd(DEF[b.type].name + " agora é nível " + b.lvl + "."); staticDirty = true; }
     });
 }
-function catchUp() { // ao abrir o jogo (ou se a aba ficou congelada): obras, treino e ataques de bots que passaram
+function catchUp() { // ao abrir o jogo (ou se a aba ficou congelada): obras, treino e ataques que passaram
     finishWork(); processTraining(false); buildOcc();
     var t = now();
-    if (S.nextBot <= t) {
-        var n = Math.min(3, Math.floor((t - S.nextBot) / BOT_EVERY) + 1), lines = [];
-        for (var i = 0; i < n; i++) lines.push(startBotAttack(false));
-        S.nextBot = t + BOT_EVERY;
-        logAdd("Os zumbis atacaram a sua base quando você estava off-line!");
-        toast("Os zumbis atacaram a sua base quando você estava off-line!");
-        setTimeout(openLog, 800);
+    if (S.nextRaid <= t) {
+        var n = Math.min(3, Math.floor((t - S.nextRaid) / RAID_EVERY) + 1);
+        for (var i = 0; i < n; i++) startRaid(false);
+        S.nextRaid = t + RAID_EVERY;
     }
     S.lastSeen = now();
 }
@@ -1519,7 +1507,7 @@ function tick() {
     S.lastSeen = now();
     finishWork();
     processTraining(V === S.vil && !BT && !SC);
-    if (!BT && !SC && now() >= S.nextBot) { S.nextBot = now() + BOT_EVERY; startBotAttack(true); }
+    if (!BT && !SC && now() >= S.nextRaid) { S.nextRaid = now() + RAID_EVERY; startRaid(true); }
     updateTop(); updateSel();
     if (!BT && !SC && !placing) requestRender();
 }
