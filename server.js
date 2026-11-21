@@ -20,6 +20,8 @@ const GAME_FILE = path.join(__dirname, 'z-brasil-aldeia.html');
 const DATA_FILE = process.env.DATA_FILE || path.join(__dirname, 'perfis.json');
 
 const RES = ['food', 'water', 'scrap'];
+// escudo que todo jogador novo ganha (em horas). Para testar dois jogadores se atacando: ESCUDO_INICIAL_HORAS=0 node server.js
+const SHIELD_START_H = process.env.ESCUDO_INICIAL_HORAS !== undefined ? Number(process.env.ESCUDO_INICIAL_HORAS) : 12;
 const BAD = [
     'pau','pinto','bunda','vagina','penis','buceta','caralho',
     'droga','maconha','cocaina','crack','lança','arma','fuzil',
@@ -79,6 +81,18 @@ function text(res, code, t) {
     res.end(t || '');
 }
 
+// ---------- chat global ----------
+const chatLog = [];
+let chatSeq = 0;
+function escRe(w) { return w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function maskBad(t) {
+    BAD.forEach((w) => {
+        const re = new RegExp('(^|[^a-zà-ú])(' + escRe(w) + ')(?=$|[^a-zà-ú])', 'gi');
+        t = t.replace(re, (m, pre, word) => pre + '*'.repeat(word.length));
+    });
+    return t;
+}
+
 // ---------- servidor ----------
 const server = http.createServer((req, res) => {
     const url = new URL(req.url, 'http://x').pathname;
@@ -91,7 +105,7 @@ const server = http.createServer((req, res) => {
             const now = Date.now();
             let p = profiles[b.id];
             const fresh = !p;
-            if (!p) p = profiles[b.id] = { id: b.id, shield: now + 12 * 3600 * 1000, pendT: 0, pendLoss: { food: 0, water: 0, scrap: 0 }, logs: [], base: [], lastAtk: 0 };
+            if (!p) p = profiles[b.id] = { id: b.id, shield: now + SHIELD_START_H * 3600 * 1000, pendT: 0, pendLoss: { food: 0, water: 0, scrap: 0 }, logs: [], base: [], lastAtk: 0 };
             let name = clean(b.name, 15);
             if (!nameOk(name)) name = 'Sobrevivente';
             p.name = name;
@@ -117,7 +131,7 @@ const server = http.createServer((req, res) => {
             if (!me) { json(res, 400, { found: false }); return; }
             const now = Date.now();
             const pool = Object.keys(profiles).map((k) => profiles[k]).filter((p) =>
-                p.id !== me.id && p.base && p.base.length > 0 && p.shield < now && now - p.seen < 7 * 86400 * 1000 && (!b.skip || b.skip.indexOf(p.id) < 0));
+                p.id !== me.id && p.base && p.base.length > 0 && p.shield < now && (!b.skip || b.skip.indexOf(p.id) < 0));
             if (!pool.length) { json(res, 200, { found: false }); return; }
             pool.sort((x, y) => Math.abs(x.trophies - me.trophies) - Math.abs(y.trophies - me.trophies));
             const p = pool[Math.floor(Math.random() * Math.min(5, pool.length))];
@@ -153,6 +167,30 @@ const server = http.createServer((req, res) => {
             if (d.logs.length > 20) d.logs.shift();
             dirty = true;
             json(res, 200, { ok: true, loot: loot, tdelta: aT });
+        });
+        return;
+    }
+
+    // Chat com qualquer pessoa (o jogo pergunta de tempos em tempos)
+    if (url === '/api/chat/send' && req.method === 'POST') {
+        readBody(req, (b) => {
+            const p = b && profiles[b.id];
+            if (!p) { json(res, 200, { ok: false, msg: 'Conectando ao servidor... tente de novo em alguns segundos.' }); return; }
+            const now = Date.now();
+            if (now - (p.lastChat || 0) < 1200) { json(res, 200, { ok: false, msg: 'Calma, mais devagar!' }); return; }
+            const t = maskBad(clean(b.text, 140));
+            if (!t) { json(res, 200, { ok: false, msg: 'Mensagem vazia.' }); return; }
+            p.lastChat = now;
+            chatLog.push({ i: ++chatSeq, t: now, n: p.name, text: t });
+            if (chatLog.length > 100) chatLog.shift();
+            json(res, 200, { ok: true });
+        });
+        return;
+    }
+    if (url === '/api/chat/poll' && req.method === 'POST') {
+        readBody(req, (b) => {
+            const since = num(b && b.since, 1e9);
+            json(res, 200, { ok: true, msgs: chatLog.filter((m) => m.i > since).slice(-40), last: chatSeq });
         });
         return;
     }
